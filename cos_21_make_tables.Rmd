@@ -1,0 +1,1398 @@
+---
+title: "Analyses - Tableaux descriptifs & Tests"
+author: "Clément Bonnet"
+date: "21/02/2022 - 29/07/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# ============ CODE R STAGE M2 BIOSTATISTIQUES ============ #
+# ===================== Clément Bonnet ==================== #
+# ========================================================= #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ======= Emplacement de travail ======= #
+setwd("~/stage")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Chargement des librairies === #
+
+library(devtools)
+library(remotes)
+
+# devtools::install_github("mattflor/chorddiag")
+# remotes::install_github("davidsjoberg/ggsankey")
+
+library(berryFunctions) # pour le is.error
+library(chorddiag) # pour les diagrammes en corde
+library(dplyr) #
+library(epiDisplay) #
+library(epiR) #
+library(ggplot2) # pour les graphiques
+library(ggsankey) # pour les diagrammes de Sankey
+library(haven) # pour importer des données de fichiers Stata ou SAS
+library(Hmisc) # pour la description de variables
+library(magrittr) # pour les diagrammes en corde
+library(pastecs) # pour la description de variables
+# library(rcom) #
+# library(rJava) #
+library(tidyverse) #
+# library(xlsx) #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_CORE.RData", sep = "/")))
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# =============== RUN ALL CHUNKS ABOVE HERE =============== #
+# ========================================================= #
+```
+
+```{r}
+list_tables <- list()
+```
+
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ======================================= #
+# =============== TABLEAU =============== #
+# ======================================= #
+```
+
+# ---- Remplissage du tableau ----
+
+## ---  Label "data" pour reproduire les analyses ---
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# ======= Échantillon global psychopathologies ======= #
+data <- data3PSY_code # (n = 334, N = 1272) échantillon global
+      # n = N = 334 à M0, M3 et M6 // n = N = 270 à M12
+
+# ======= Aucun accès à la SCMR ======= #
+# data <- filter(data, scmr_cat_P == 0) # (n = 159, N = 634)
+      # n = N = 159 à M0, M3 et M6 // n = N = ?? à M12
+
+# ======= Au moins 1 accès à la SCMR ======= #
+# data <- filter(data, scmr_cat_P == 1) # (n = 164, N = 617)
+      # n = N = 164 à M0, M3 et M6 // n = N = ?? à M12
+
+# ======= Selon les catégories TSPT ======= #
+# data <- filter(data, tspt_2cat_P == 0) # (n = ??, N = ??) : Pas de TSPT
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+# data <- filter(data, tspt_2cat_P == 1) # (n = ??, N = ??) : TSPT
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+
+# ======= Selon les catégories ANX ======= #
+# data <- filter(data, anx_2cat_P == 0) # (n = ??, N = ??) : Anxiété minime
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+# data <- filter(data, anx_2cat_P == 1) # (n = ??, N = ??) : Anxiété modérée ou préoccupante
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+
+# ======= Selon les catégories TDAH ======= #
+# data <- filter(data, tdah_2cat_P == 0) # (n = ??, N = ??) : Score TDAH bas
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+# data <- filter(data, tdah_2cat_P == 1) # (n = ??, N = ??) : Score TDAH élevé
+      # n = N = ?? à M0, M3 et M6 // n = N = ?? à M12
+
+# ======= Pour avoir le sous-jeux de "data" sur un suivi ======= #
+# dataM0 <- subset(data, data$phase == "M0")
+# data <- dataM0
+# dataM3 <- subset(data, data$phase == "M3")
+# data <- dataM3
+dataM6 <- subset(data, data$phase == "M6")
+data <- dataM6
+# dataM12 <- subset(data, data$phase == "M12")
+# data <- dataM12
+
+# ====== Pour vérifier le jeu de données ====== #
+data <- data %>% dplyr::select(all_of(list_var))
+
+# ======= Calculs effectifs ======= #
+length(unique(data$code_conf_rec)) # n
+nrow(data) # N
+
+```
+
+## --- Choix version analyse ---
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# Choix Tableau _P
+data$tspt_cat <- data$tspt_2cat_P
+data$anx_cat <- data$anx_2cat_P
+data$tdah_cat <- data$tdah_2cat_P
+data$scmry3 <- data$scmry3_P
+data$hvy1 <- data$hvy1_P
+data$hvy2 <- data$hvy2_P
+data$freqinjection <- data$freqinjection_P
+data$vih <- data$vih_P
+data$vhc <- data$vhc_P
+data$cocaine_quot <- data$cocaine_quot_P
+data$cannabis10j <- data$cannabis10j_P
+data$morphine_quot_hpresc <- data$morphine_quot_hpresc_P
+data$encouple <- data$encouple_P
+data$activite <- data$activite_P
+data$couvsociale <- data$couvsociale_P
+data$allocpension <- data$allocpension_P
+data$prison <- data$prison_P
+data$tentative_suic <- data$tentative_suic_P
+data$consoalcool <- data$consoalcool_P
+data$cigarette <- data$cigarette_P
+
+# # Choix Tableau _S
+# data$tspt_cat <- data$tspt_2cat_S
+# data$anx_cat <- data$anx_2cat_S
+# data$tdah_cat <- data$tdah_2cat_S
+# data$scmry3 <- data$scmry3_S
+# data$hvy1 <- data$hvy1_S
+# data$hvy2 <- data$hvy2_S
+# data$freqinjection <- data$freqinjection_S
+# data$vih <- data$vih_S
+# data$vhc <- data$vhc_S
+# data$cocaine_quot <- data$cocaine_quot_S
+# data$cannabis10j <- data$cannabis10j_S
+# data$morphine_quot_hpresc <- data$morphine_quot_hpresc_S
+# data$encouple <- data$encouple_S
+# data$activite <- data$activite_S
+# data$couvsociale <- data$couvsociale_S
+# data$allocpension <- data$allocpension_S
+# data$prison <- data$prison_S
+# data$tentative_suic <- data$tentative_suic_S
+# data$consoalcool <- data$consoalcool_S
+# data$cigarette <- data$cigarette_S
+
+# # Choix Tableau _NA
+# data$tspt_cat <- data$tspt_2cat_NA
+# data$anx_cat <- data$anx_2cat_NA
+# data$tdah_cat <- data$tdah_2cat_NA
+# data$scmry3 <- data$scmry3_NA
+# data$hvy1 <- data$hvy1_NA
+# data$hvy2 <- data$hvy2_NA
+# data$freqinjection <- data$freqinjection_NA
+# data$vih <- data$vih_NA
+# data$vhc <- data$vhc_NA
+# data$cocaine_quot <- data$cocaine_quot_NA
+# data$cannabis10j <- data$cannabis10j_NA
+# data$morphine_quot_hpresc <- data$morphine_quot_hpresc_NA
+# data$encouple <- data$encouple_NA
+# data$activite <- data$activite_NA
+# data$couvsociale <- data$couvsociale_NA
+# data$allocpension <- data$allocpension_NA
+# data$prison <- data$prison_NA
+# data$tentative_suic <- data$tentative_suic_NA
+# data$consoalcool <- data$consoalcool_NA
+# data$cigarette <- data$cigarette_NA
+```
+
+## --- Remplissage colonne par colonne ---
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Genre
+describe(as.factor(data$gender))
+
+# Âge
+a <- stat.desc(as.numeric(data$age), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# Lieu de naissance
+describe(as.factor(data$lieu))
+
+# Ville
+describe(as.factor(data$ville))
+
+# Niveau d'étude
+describe(as.factor(data$niveaudetude))
+
+# TSPT
+describe(as.factor(data$tspt_cat))
+a<- stat.desc(as.numeric(data$tspt_score), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# ANX
+describe(as.factor(data$anx_cat))
+a <- stat.desc(as.numeric(data$anx_score), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# TDAH
+describe(as.factor(data$tdah_cat))
+a <- stat.desc(as.numeric(data$tdah_score), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# Fréquentation SCMR
+describe(as.factor(data$scmry3))
+
+# Au moins une pratique à risque (30 derniers jours)
+describe(as.factor(data$hvy1))
+
+# Nombre de pratiques à risque (30 derniers jours)
+a <- stat.desc(as.numeric(data$hvy2), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# Fréquence d'injection
+describe(as.factor(data$freqinjection))
+
+# Statut VIH déclaré
+describe(as.factor(data$vih))
+
+# Statut VHC déclaré
+describe(as.factor(data$vhc))
+
+# Suit un TSO
+describe(as.factor(data$tso_actuel))
+
+# Usage quotidien de cocaïne
+describe(as.factor(data$cocaine_quot))
+
+# Usage quotidien de crack
+describe(as.factor(data$crack_quot))
+
+# Usage de cannabis pour plus de 10 jours par mois
+describe(as.factor(data$cannabis10j))
+
+# Usage de buprénorphine hors prescription
+describe(as.factor(data$buprenorphine_hpresc))
+
+# Usage de méthadone hors prescription
+describe(as.factor(data$methadone_hpresc))
+
+# Usage quotidien de morphine hors prescription
+describe(as.factor(data$morphine_quot_hpresc))
+
+# Nombre de produits différents consommés au moins une fois
+a <- stat.desc(as.numeric(data$nbproduitsdif), basic = FALSE, desc = FALSE)
+c(a["mean"],a["std.dev"])
+
+# En couple actuellement
+describe(as.factor(data$encouple))
+
+# Type de logement (précarité du logement)
+describe(as.factor(data$precaritelogement))
+
+# Activité professionnelle
+describe(as.factor(data$activite))
+
+# Couverture sociale
+describe(as.factor(data$couvsociale))
+
+# Aide alimentaire
+describe(as.factor(data$aidealimentaire))
+
+# Allocation ou pension
+describe(as.factor(data$allocpension))
+
+# Prison au cours de la vie
+describe(as.factor(data$prison))
+
+# Tentative de suicide au cours de la vie
+describe(as.factor(data$tentative_suic))
+
+# Consommation problématique d'alcool
+describe(as.factor(data$consoalcool))
+
+# Nombre de cigarettes par jour
+describe(as.factor(data$cigarette))
+
+rm(a)
+```
+
+
+
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================= #
+# =============== P-VALEURS =============== #
+# ========================================= #
+```
+
+# ---- Calcul des p-valeurs ---- 
+
+```{r}
+options(warn = -1)
+# __ M0 __ #
+
+# cos3PSY
+data <- subset(data3PSY, data3PSY$phase == "M0")
+
+# cos3PSYSCMR
+data1 <- filter(data, as.numeric(scmr_cat) == 2)
+
+# cos3PSYnoSCMR
+data2 <- filter(data, as.numeric(scmr_cat) == 1)
+
+# __ M6 __ #
+
+# cos3PSY
+dataM6 <- subset(data3PSY, data3PSY$phase == "M6")
+# 
+# # cos3PSYSCMR
+# data1M6 <- filter(dataM6, as.numeric(scmr_cat) == 2)
+# 
+# # cos3PSYnoSCMR
+# data2M6 <- filter(dataM6, as.numeric(scmr_cat) == 1)
+```
+
+## --- Choix version analyse ---
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# Choix Tableau _P
+data$tspt_cat <- data$tspt_2cat_P
+data$anx_cat <- data$anx_2cat_P
+data$tdah_cat <- data$tdah_2cat_P
+data$scmry3 <- data$scmry3_P
+data$hvy1 <- data$hvy1_P
+data$hvy2 <- data$hvy2_P
+data$freqinjection <- data$freqinjection_P
+data$vih <- data$vih_P
+data$vhc <- data$vhc_P
+data$cocaine_quot <- data$cocaine_quot_P
+data$cannabis10j <- data$cannabis10j_P
+data$morphine_quot_hpresc <- data$morphine_quot_hpresc_P
+data$encouple <- data$encouple_P
+data$activite <- data$activite_P
+data$couvsociale <- data$couvsociale_P
+data$allocpension <- data$allocpension_P
+data$prison <- data$prison_P
+data$tentative_suic <- data$tentative_suic_P
+data$consoalcool <- data$consoalcool_P
+data$cigarette <- data$cigarette_P
+
+dataM6$tspt_cat <- dataM6$tspt_2cat_P
+dataM6$anx_cat <- dataM6$anx_2cat_P
+dataM6$tdah_cat <- dataM6$tdah_2cat_P
+dataM6$scmry3 <- dataM6$scmry3_P
+dataM6$hvy1 <- dataM6$hvy1_P
+dataM6$hvy2 <- dataM6$hvy2_P
+dataM6$freqinjection <- dataM6$freqinjection_P
+dataM6$vih <- dataM6$vih_P
+dataM6$vhc <- dataM6$vhc_P
+dataM6$cocaine_quot <- dataM6$cocaine_quot_P
+dataM6$cannabis10j <- dataM6$cannabis10j_P
+dataM6$morphine_quot_hpresc <- dataM6$morphine_quot_hpresc_P
+dataM6$encouple <- dataM6$encouple_P
+dataM6$activite <- dataM6$activite_P
+dataM6$couvsociale <- dataM6$couvsociale_P
+dataM6$allocpension <- dataM6$allocpension_P
+dataM6$prison <- dataM6$prison_P
+dataM6$tentative_suic <- dataM6$tentative_suic_P
+dataM6$consoalcool <- dataM6$consoalcool_P
+dataM6$cigarette <- dataM6$cigarette_P
+
+data1$tspt_cat <- data1$tspt_2cat_P
+data1$anx_cat <- data1$anx_2cat_P
+data1$tdah_cat <- data1$tdah_2cat_P
+data1$scmry3 <- data1$scmry3_P
+data1$hvy1 <- data1$hvy1_P
+data1$hvy2 <- data1$hvy2_P
+data1$freqinjection <- data1$freqinjection_P
+data1$vih <- data1$vih_P
+data1$vhc <- data1$vhc_P
+data1$cocaine_quot <- data1$cocaine_quot_P
+data1$cannabis10j <- data1$cannabis10j_P
+data1$morphine_quot_hpresc <- data1$morphine_quot_hpresc_P
+data1$encouple <- data1$encouple_P
+data1$activite <- data1$activite_P
+data1$couvsociale <- data1$couvsociale_P
+data1$allocpension <- data1$allocpension_P
+data1$prison <- data1$prison_P
+data1$tentative_suic <- data1$tentative_suic_P
+data1$consoalcool <- data1$consoalcool_P
+data1$cigarette <- data1$cigarette_P
+
+data2$tspt_cat <- data2$tspt_2cat_P
+data2$anx_cat <- data2$anx_2cat_P
+data2$tdah_cat <- data2$tdah_2cat_P
+data2$scmry3 <- data2$scmry3_P
+data2$hvy1 <- data2$hvy1_P
+data2$hvy2 <- data2$hvy2_P
+data2$freqinjection <- data2$freqinjection_P
+data2$vih <- data2$vih_P
+data2$vhc <- data2$vhc_P
+data2$cocaine_quot <- data2$cocaine_quot_P
+data2$cannabis10j <- data2$cannabis10j_P
+data2$morphine_quot_hpresc <- data2$morphine_quot_hpresc_P
+data2$encouple <- data2$encouple_P
+data2$activite <- data2$activite_P
+data2$couvsociale <- data2$couvsociale_P
+data2$allocpension <- data2$allocpension_P
+data2$prison <- data2$prison_P
+data2$tentative_suic <- data2$tentative_suic_P
+data2$consoalcool <- data2$consoalcool_P
+data2$cigarette <- data2$cigarette_P
+
+
+# # Choix Tableau _S
+# data$tspt_cat <- data$tspt_2cat_S
+# data$anx_cat <- data$anx_2cat_S
+# data$tdah_cat <- data$tdah_2cat_S
+# data$scmry3 <- data$scmry3_S
+# data$hvy1 <- data$hvy1_S
+# data$hvy2 <- data$hvy2_S
+# data$freqinjection <- data$freqinjection_S
+# data$vih <- data$vih_S
+# data$vhc <- data$vhc_S
+# data$cocaine_quot <- data$cocaine_quot_S
+# data$cannabis10j <- data$cannabis10j_S
+# data$morphine_quot_hpresc <- data$morphine_quot_hpresc_S
+# data$encouple <- data$encouple_S
+# data$activite <- data$activite_S
+# data$couvsociale <- data$couvsociale_S
+# data$allocpension <- data$allocpension_S
+# data$prison <- data$prison_S
+# data$tentative_suic <- data$tentative_suic_S
+# data$consoalcool <- data$consoalcool_S
+# data$cigarette <- data$cigarette_S
+#
+# dataM6$tspt_cat <- dataM6$tspt_2cat_S
+# dataM6$anx_cat <- dataM6$anx_2cat_S
+# dataM6$tdah_cat <- dataM6$tdah_2cat_S
+# dataM6$scmry3 <- dataM6$scmry3_S
+# dataM6$hvy1 <- dataM6$hvy1_S
+# dataM6$hvy2 <- dataM6$hvy2_S
+# dataM6$freqinjection <- dataM6$freqinjection_S
+# dataM6$vih <- dataM6$vih_S
+# dataM6$vhc <- dataM6$vhc_S
+# dataM6$cocaine_quot <- dataM6$cocaine_quot_S
+# dataM6$cannabis10j <- dataM6$cannabis10j_S
+# dataM6$morphine_quot_hpresc <- dataM6$morphine_quot_hpresc_S
+# dataM6$encouple <- dataM6$encouple_S
+# dataM6$activite <- dataM6$activite_S
+# dataM6$couvsociale <- dataM6$couvsociale_S
+# dataM6$allocpension <- dataM6$allocpension_S
+# dataM6$prison <- dataM6$prison_S
+# dataM6$tentative_suic <- dataM6$tentative_suic_S
+# dataM6$consoalcool <- dataM6$consoalcool_S
+# dataM6$cigarette <- dataM6$cigarette_S
+# 
+# data1$tspt_cat <- data1$tspt_2cat_S
+# data1$anx_cat <- data1$anx_2cat_S
+# data1$tdah_cat <- data1$tdah_2cat_S
+# data1$scmry3 <- data1$scmry3_S
+# data1$hvy1 <- data1$hvy1_S
+# data1$hvy2 <- data1$hvy2_S
+# data1$freqinjection <- data1$freqinjection_S
+# data1$vih <- data1$vih_S
+# data1$vhc <- data1$vhc_S
+# data1$cocaine_quot <- data1$cocaine_quot_S
+# data1$cannabis10j <- data1$cannabis10j_S
+# data1$morphine_quot_hpresc <- data1$morphine_quot_hpresc_S
+# data1$encouple <- data1$encouple_S
+# data1$activite <- data1$activite_S
+# data1$couvsociale <- data1$couvsociale_S
+# data1$allocpension <- data1$allocpension_S
+# data1$prison <- data1$prison_S
+# data1$tentative_suic <- data1$tentative_suic_S
+# data1$consoalcool <- data1$consoalcool_S
+# data1$cigarette <- data1$cigarette_S
+# 
+# data2$tspt_cat <- data2$tspt_2cat_S
+# data2$anx_cat <- data2$anx_2cat_S
+# data2$tdah_cat <- data2$tdah_2cat_S
+# data2$scmry3 <- data2$scmry3_S
+# data2$hvy1 <- data2$hvy1_S
+# data2$hvy2 <- data2$hvy2_S
+# data2$freqinjection <- data2$freqinjection_S
+# data2$vih <- data2$vih_S
+# data2$vhc <- data2$vhc_S
+# data2$cocaine_quot <- data2$cocaine_quot_S
+# data2$cannabis10j <- data2$cannabis10j_S
+# data2$morphine_quot_hpresc <- data2$morphine_quot_hpresc_S
+# data2$encouple <- data2$encouple_S
+# data2$activite <- data2$activite_S
+# data2$couvsociale <- data2$couvsociale_S
+# data2$allocpension <- data2$allocpension_S
+# data2$prison <- data2$prison_S
+# data2$tentative_suic <- data2$tentative_suic_S
+# data2$consoalcool <- data2$consoalcool_S
+# data2$cigarette <- data2$cigarette_S
+
+
+# # Choix Tableau _NA
+# data$tspt_cat <- data$tspt_2cat_NA
+# data$anx_cat <- data$anx_2cat_NA
+# data$tdah_cat <- data$tdah_2cat_NA
+# data$scmry3 <- data$scmry3_NA
+# data$hvy1 <- data$hvy1_NA
+# data$hvy2 <- data$hvy2_NA
+# data$freqinjection <- data$freqinjection_NA
+# data$vih <- data$vih_NA
+# data$vhc <- data$vhc_NA
+# data$cocaine_quot <- data$cocaine_quot_NA
+# data$cannabis10j <- data$cannabis10j_NA
+# data$morphine_quot_hpresc <- data$morphine_quot_hpresc_NA
+# data$encouple <- data$encouple_NA
+# data$activite <- data$activite_NA
+# data$couvsociale <- data$couvsociale_NA
+# data$allocpension <- data$allocpension_NA
+# data$prison <- data$prison_NA
+# data$tentative_suic <- data$tentative_suic_NA
+# data$consoalcool <- data$consoalcool_NA
+# data$cigarette <- data$cigarette_NA
+# 
+# dataM6$tspt_cat <- dataM6$tspt_2cat_NA
+# dataM6$anx_cat <- dataM6$anx_2cat_NA
+# dataM6$tdah_cat <- dataM6$tdah_2cat_NA
+# dataM6$scmry3 <- dataM6$scmry3_NA
+# dataM6$hvy1 <- dataM6$hvy1_NA
+# dataM6$hvy2 <- dataM6$hvy2_NA
+# dataM6$freqinjection <- dataM6$freqinjection_NA
+# dataM6$vih <- dataM6$vih_NA
+# dataM6$vhc <- dataM6$vhc_NA
+# dataM6$cocaine_quot <- dataM6$cocaine_quot_NA
+# dataM6$cannabis10j <- dataM6$cannabis10j_NA
+# dataM6$morphine_quot_hpresc <- dataM6$morphine_quot_hpresc_NA
+# dataM6$encouple <- dataM6$encouple_NA
+# dataM6$activite <- dataM6$activite_NA
+# dataM6$couvsociale <- dataM6$couvsociale_NA
+# dataM6$allocpension <- dataM6$allocpension_NA
+# dataM6$prison <- dataM6$prison_NA
+# dataM6$tentative_suic <- dataM6$tentative_suic_NA
+# dataM6$consoalcool <- dataM6$consoalcool_NA
+# dataM6$cigarette <- dataM6$cigarette_NA
+# 
+# data1$tspt_cat <- data1$tspt_2cat_NA
+# data1$anx_cat <- data1$anx_2cat_NA
+# data1$tdah_cat <- data1$tdah_2cat_NA
+# data1$scmry3 <- data1$scmry3_NA
+# data1$hvy1 <- data1$hvy1_NA
+# data1$hvy2 <- data1$hvy2_NA
+# data1$freqinjection <- data1$freqinjection_NA
+# data1$vih <- data1$vih_NA
+# data1$vhc <- data1$vhc_NA
+# data1$cocaine_quot <- data1$cocaine_quot_NA
+# data1$cannabis10j <- data1$cannabis10j_NA
+# data1$morphine_quot_hpresc <- data1$morphine_quot_hpresc_NA
+# data1$encouple <- data1$encouple_NA
+# data1$activite <- data1$activite_NA
+# data1$couvsociale <- data1$couvsociale_NA
+# data1$allocpension <- data1$allocpension_NA
+# data1$prison <- data1$prison_NA
+# data1$tentative_suic <- data1$tentative_suic_NA
+# data1$consoalcool <- data1$consoalcool_NA
+# data1$cigarette <- data1$cigarette_NA
+# 
+# data2$tspt_cat <- data2$tspt_2cat_NA
+# data2$anx_cat <- data2$anx_2cat_NA
+# data2$tdah_cat <- data2$tdah_2cat_NA
+# data2$scmry3 <- data2$scmry3_NA
+# data2$hvy1 <- data2$hvy1_NA
+# data2$hvy2 <- data2$hvy2_NA
+# data2$freqinjection <- data2$freqinjection_NA
+# data2$vih <- data2$vih_NA
+# data2$vhc <- data2$vhc_NA
+# data2$cocaine_quot <- data2$cocaine_quot_NA
+# data2$cannabis10j <- data2$cannabis10j_NA
+# data2$morphine_quot_hpresc <- data2$morphine_quot_hpresc_NA
+# data2$encouple <- data2$encouple_NA
+# data2$activite <- data2$activite_NA
+# data2$couvsociale <- data2$couvsociale_NA
+# data2$allocpension <- data2$allocpension_NA
+# data2$prison <- data2$prison_NA
+# data2$tentative_suic <- data2$tentative_suic_NA
+# data2$consoalcool <- data2$consoalcool_NA
+# data2$cigarette <- data2$cigarette_NA
+
+```
+
+## --- p-valeurs du tableau 1 ---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+kelcat <- data$scmr_cat
+
+# ___ Liste des p-valeurs du tableau 1 ___ #
+T1_pval <- list()
+
+# Genre
+T1_pval[["gender"]] <- test_quali(data$gender, kelcat)
+
+# Âge
+x = data1$age ; y = data2$age
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["age"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["age"]] <- wilcox.test(x, y)$p.value
+
+# Lieu de naissance
+T1_pval[["lieu"]] <- test_quali(data$lieu, kelcat)
+
+# Ville
+T1_pval[["ville"]] <- test_quali(data$ville, kelcat)
+
+# Niveau d'étude
+T1_pval[["niveaudetude"]] <- test_quali(data$niveaudetude, kelcat)
+
+# TSPT (catégories)
+T1_pval[["tspt_cat"]] <- test_quali(data$tspt_cat, kelcat)
+
+# Score à l'IES-R
+x = data1$tspt_score ; y = data2$tspt_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["tspt_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["tspt_score"]] <- wilcox.test(x, y)$p.value
+
+# ANX (catégories)
+T1_pval[["anx_cat"]] <- test_quali(data$anx_cat, kelcat)
+
+# Score au BAI
+x = data1$anx_score ; y = data2$anx_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["anx_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["anx_score"]] <- wilcox.test(x, y)$p.value
+
+# TDAH (catégories)
+T1_pval[["tdah_cat"]] <- test_quali(data$tdah_cat, kelcat)
+
+# Score au WURS-25
+x = data1$tdah_score ; y = data2$tdah_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["tdah_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["tdah_score"]] <- wilcox.test(x, y)$p.value
+
+# Fréquentation SCMR
+# ___
+
+# Au moins une pratique à risque (30 derniers jours)
+T1_pval[["hvy1"]] <- test_quali(data$hvy1, kelcat)
+
+# Nombre de pratiques à risque (dernier mois)
+x = data1$hvy2 ; y = data2$hvy2
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["hvy2"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["hvy2"]] <- wilcox.test(x, y)$p.value
+
+# Fréquence d'injection
+T1_pval[["freqinjection"]] <- test_quali(data$freqinjection, kelcat)
+
+# Statut VIH déclaré
+T1_pval[["vih"]] <- test_quali(data$vih, kelcat)
+
+# Statut VHC déclaré
+T1_pval[["vhc"]] <- test_quali(data$vhc, kelcat)
+
+# Suit un TSO
+T1_pval[["tso_actuel"]] <- test_quali(data$tso_actuel, kelcat)
+
+# Usage quotidien de cocaïne
+T1_pval[["cocaine_quot"]] <- test_quali(data$cocaine_quot, kelcat)
+
+# Usage quotidien de crack
+T1_pval[["crack_quot"]] <- test_quali(data$crack_quot, kelcat)
+
+# Usage de cannabis pour plus de 10 jours par mois
+T1_pval[["cannabis10j"]] <- test_quali(data$cannabis10j, kelcat)
+
+# Usage de buprénorphine hors prescription
+T1_pval[["buprenorphine_hpresc"]] <- test_quali(data$buprenorphine_hpresc, kelcat)
+
+# Usage de méthadone hors prescription
+T1_pval[["methadone_hpresc"]] <- test_quali(data$methadone_hpresc, kelcat)
+
+# Usage quotidien de morphine hors prescription
+T1_pval[["morphine_quot_hpresc"]] <- test_quali(data$morphine_quot_hpresc, kelcat)
+
+# Nombre de produits différents consommés au moins une fois
+x = data1$nbproduitsdif ; y = data2$nbproduitsdif
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T1_pval[["nbproduitsdif"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T1_pval[["nbproduitsdif"]] <- wilcox.test(x, y)$p.value
+
+# En couple actuellement
+T1_pval[["encouple"]] <- test_quali(data$encouple, kelcat)
+
+# Type de logement (précarité du logement)
+T1_pval[["precaritelogement"]] <- test_quali(data$precaritelogement, kelcat)
+
+# Activité professionnelle
+T1_pval[["activite"]] <- test_quali(data$activite, kelcat)
+
+# Couverture sociale
+T1_pval[["couvsociale"]] <- test_quali(data$couvsociale, kelcat)
+
+# Aide alimentaire
+T1_pval[["aidealimentaire"]] <- test_quali(data$aidealimentaire, kelcat)
+
+# Allocation ou pension
+T1_pval[["allocpension"]] <- test_quali(data$allocpension, kelcat)
+
+# Prison au cours de la vie
+T1_pval[["prison"]] <- test_quali(data$prison, kelcat)
+
+# Tentative de suicide au cours de la vie
+T1_pval[["tentative_suic"]] <- test_quali(data$tentative_suic, kelcat)
+
+# Consommation problématique d'alcool
+T1_pval[["consoalcool"]] <- test_quali(data$consoalcool, kelcat)
+
+# Nombre de cigarettes par jour
+T1_pval[["cigarette"]] <- test_quali(data$cigarette, kelcat)
+
+```
+
+## --- p-valeurs du tableau 2 ---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# data car Tableau sur cos3PSY
+dataTSPT0 <- filter(data3PSY, code_conf_rec %in% list_id[["idTSPT_2_0"]])
+dataTSPT0 <- subset(dataTSPT0, dataTSPT0$phase == "M0")
+
+dataTSPT1 <- filter(data3PSY, code_conf_rec %in% list_id[["idTSPT_2_1"]])
+dataTSPT1 <- subset(dataTSPT1, dataTSPT1$phase == "M0")
+
+kelcat <- data$tspt_cat
+
+# ___ Liste des p-valeurs du tableau 2 ___ #
+
+T2_pval <- list()
+
+# Genre
+T2_pval[["gender"]] <- test_quali(data$gender, kelcat)
+
+# Âge
+x = dataTSPT0$age ; y = dataTSPT1$age
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+T2_pval[["age"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+# T2_pval[["age"]] <- wilcox.test(x, y)$p.value
+
+# Lieu de naissance
+T2_pval[["lieu"]] <- test_quali(data$lieu, kelcat)
+
+# Ville
+T2_pval[["ville"]] <- test_quali(data$ville, kelcat)
+
+# Niveau d'étude
+T2_pval[["niveaudetude"]] <- test_quali(data$niveaudetude, kelcat)
+
+# TSPT (catégories)
+# ---
+
+# Score à l'IES-R
+# ---
+
+# ANX (catégories)
+T2_pval[["anx_cat"]] <- test_quali(data$anx_cat, kelcat)
+
+# Score au BAI
+x = dataTSPT0$anx_score ; y = dataTSPT1$anx_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T2_pval[["anx_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T2_pval[["anx_score"]] <- wilcox.test(x, y)$p.value
+
+# TDAH (catégories)
+T2_pval[["tdah_cat"]] <- test_quali(data$tdah_cat, kelcat)
+
+# Score au WURS-25
+x = dataTSPT0$tdah_score ; y = dataTSPT1$tdah_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T2_pval[["tdah_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T2_pval[["tdah_score"]] <- wilcox.test(x, y)$p.value
+
+# Fréquentation SCMR
+T2_pval[["scmry3"]] <- test_quali(data$scmry3, kelcat)
+
+# Au moins une pratique à risque (30 derniers jours)
+T2_pval[["hvy1"]] <- test_quali(data$hvy1, kelcat)
+
+# Nombre de pratiques à risque (dernier mois)
+x = dataTSPT0$hvy2_P ; y = dataTSPT1$hvy2_P
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T2_pval[["hvy2"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T2_pval[["hvy2"]] <- wilcox.test(x, y)$p.value
+
+# Fréquence d'injection
+T2_pval[["freqinjection"]] <- test_quali(data$freqinjection, kelcat)
+
+# Statut VIH déclaré
+T2_pval[["vih"]] <- test_quali(data$vih, kelcat)
+
+# Statut VHC déclaré
+T2_pval[["vhc"]] <- test_quali(data$vhc, kelcat)
+
+# Suit un TSO
+T2_pval[["tso_actuel"]] <- test_quali(data$tso_actuel, kelcat)
+
+# Usage quotidien de cocaïne
+T2_pval[["cocaine_quot"]] <- test_quali(data$cocaine_quot, kelcat)
+
+# Usage quotidien de crack
+T2_pval[["crack_quot"]] <- test_quali(data$crack_quot, kelcat)
+
+# Usage de cannabis pour plus de 10 jours par mois
+T2_pval[["cannabis10j"]] <- test_quali(data$cannabis10j, kelcat)
+
+# Usage de buprénorphine hors prescription
+T2_pval[["buprenorphine_hpresc"]] <- test_quali(data$buprenorphine_hpresc, kelcat)
+
+# Usage de méthadone hors prescription
+T2_pval[["methadone_hpresc"]] <- test_quali(data$methadone_hpresc, kelcat)
+
+# Usage quotidien de morphine hors prescription
+T2_pval[["morphine_quot_hpresc"]] <- test_quali(data$morphine_quot_hpresc, kelcat)
+
+# Nombre de produits différents consommés au moins une fois
+x = dataTSPT0$nbproduitsdif ; y = dataTSPT1$nbproduitsdif
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T2_pval[["nbproduitsdif"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T2_pval[["nbproduitsdif"]] <- wilcox.test(x, y)$p.value
+
+# En couple actuellement
+T2_pval[["encouple"]] <- test_quali(data$encouple, kelcat)
+
+# Type de logement (précarité du logement)
+T2_pval[["precaritelogement"]] <- test_quali(data$precaritelogement, kelcat)
+
+# Activité professionnelle
+T2_pval[["activite"]] <- test_quali(data$activite, kelcat)
+
+# Couverture sociale
+T2_pval[["couvsociale"]] <- test_quali(data$couvsociale, kelcat)
+
+# Aide alimentaire
+T2_pval[["aidealimentaire"]] <- test_quali(data$aidealimentaire, kelcat)
+
+# Allocation ou pension
+T2_pval[["allocpension"]] <- test_quali(data$allocpension, kelcat)
+
+# Prison au cours de la vie
+T2_pval[["prison"]] <- test_quali(data$prison, kelcat)
+
+# Tentative de suicide au cours de la vie
+T2_pval[["tentative_suic"]] <- test_quali(data$tentative_suic, kelcat)
+
+# Consommation problématique d'alcool
+T2_pval[["consoalcool"]] <- test_quali(data$consoalcool, kelcat)
+
+# Nombre de cigarettes par jour
+T2_pval[["cigarette"]] <- test_quali(data$cigarette, kelcat)
+```
+
+## --- p-valeurs du tableau 3 ---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Établir cos3PSYSCMR à M6
+dataM6ANX0 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_0"]])
+dataM6ANX0 <- subset(dataM6ANX0, dataM6ANX0$phase == "M6")
+
+dataM6ANX1 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_1"]])
+dataM6ANX1 <- subset(dataM6ANX1, dataM6ANX1$phase == "M6")
+
+kelcat <- dataM6$anx_cat
+
+# ___ Liste des p-valeurs du tableau 3 ___ #
+
+T3_pval <- list()
+
+# Genre
+T3_pval[["gender"]] <- test_quali(dataM6$gender, kelcat)
+
+# Âge
+x = dataM6ANX0$age ; y = dataM6ANX1$age
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+T3_pval[["age"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+# T3_pval[["age"]] <- wilcox.test(x, y)$p.value
+
+# Lieu de naissance
+T3_pval[["lieu"]] <- test_quali(dataM6$lieu, kelcat)
+
+# Ville
+T3_pval[["ville"]] <- test_quali(dataM6$ville, kelcat)
+
+# Niveau d'étude
+T3_pval[["niveaudetude"]] <- test_quali(dataM6$niveaudetude, kelcat)
+
+# TSPT (catégories)
+T3_pval[["tspt_cat"]] <- test_quali(dataM6$tspt_cat, kelcat)
+
+# Score à l'IES-R
+x = dataM6ANX0$tspt_score ; y = dataM6ANX1$tspt_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T3_pval[["tspt_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T3_pval[["tspt_score"]] <- wilcox.test(x, y)$p.value
+
+# ANX (catégories)
+# ___
+
+# Score au BAI
+# ___
+
+# TDAH (catégories)
+T3_pval[["tdah_cat"]] <- test_quali(dataM6$tdah_cat, kelcat)
+
+# Score au WURS-25
+x = dataM6ANX0$tdah_score ; y = dataM6ANX1$tdah_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T3_pval[["tdah_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T3_pval[["tdah_score"]] <- wilcox.test(x, y)$p.value
+
+# Fréquentation SCMR
+T3_pval[["scmry3"]] <- test_quali(dataM6$scmry3, kelcat)
+
+# Au moins une pratique à risque (30 derniers jours)
+T3_pval[["hvy1"]] <- test_quali(dataM6$hvy1, kelcat)
+
+# Nombre de pratiques à risque (dernier mois)
+x = dataM6ANX0$hvy2_P ; y = dataM6ANX1$hvy2_P
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T3_pval[["hvy2"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T3_pval[["hvy2"]] <- wilcox.test(x, y)$p.value
+
+# Fréquence d'injection
+T3_pval[["freqinjection"]] <- test_quali(dataM6$freqinjection, kelcat)
+
+# Statut VIH déclaré
+T3_pval[["vih"]] <- test_quali(dataM6$vih, kelcat)
+
+# Statut VHC déclaré
+T3_pval[["vhc"]] <- test_quali(dataM6$vhc, kelcat)
+
+# Suit un TSO
+T3_pval[["tso_actuel"]] <- test_quali(dataM6$tso_actuel, kelcat)
+
+# Usage quotidien de cocaïne
+T3_pval[["cocaine_quot"]] <- test_quali(dataM6$cocaine_quot, kelcat)
+
+# Usage quotidien de crack
+T3_pval[["crack_quot"]] <- test_quali(dataM6$crack_quot, kelcat)
+
+# Usage de cannabis pour plus de 10 jours par mois
+T3_pval[["cannabis10j"]] <- test_quali(dataM6$cannabis10j, kelcat)
+
+# Usage de buprénorphine hors prescription
+T3_pval[["buprenorphine_hpresc"]] <- test_quali(dataM6$buprenorphine_hpresc, kelcat)
+
+# Usage de méthadone hors prescription
+T3_pval[["methadone_hpresc"]] <- test_quali(dataM6$methadone_hpresc, kelcat)
+
+# Usage quotidien de morphine hors prescription
+T3_pval[["morphine_quot_hpresc"]] <- test_quali(dataM6$morphine_quot_hpresc, kelcat)
+
+# Nombre de produits différents consommés au moins une fois
+x = dataM6ANX0$nbproduitsdif ; y = dataM6ANX1$nbproduitsdif
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T3_pval[["nbproduitsdif"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T3_pval[["nbproduitsdif"]] <- wilcox.test(x, y)$p.value
+
+# En couple actuellement
+T3_pval[["encouple"]] <- test_quali(dataM6$encouple, kelcat)
+
+# Type de logement (précarité du logement)
+T3_pval[["precaritelogement"]] <- test_quali(dataM6$precaritelogement, kelcat)
+
+# Activité professionnelle
+T3_pval[["activite"]] <- test_quali(dataM6$activite, kelcat)
+
+# Couverture sociale
+T3_pval[["couvsociale"]] <- test_quali(dataM6$couvsociale, kelcat)
+
+# Aide alimentaire
+T3_pval[["aidealimentaire"]] <- test_quali(dataM6$aidealimentaire, kelcat)
+
+# Allocation ou pension
+T3_pval[["allocpension"]] <- test_quali(dataM6$allocpension, kelcat)
+
+# Prison au cours de la vie
+T3_pval[["prison"]] <- test_quali(dataM6$prison, kelcat)
+
+# Tentative de suicide au cours de la vie
+T3_pval[["tentative_suic"]] <- test_quali(dataM6$tentative_suic, kelcat)
+
+# Consommation problématique d'alcool
+T3_pval[["consoalcool"]] <- test_quali(dataM6$consoalcool, kelcat)
+
+# Nombre de cigarettes par jour
+T3_pval[["cigarette"]] <- test_quali(dataM6$cigarette, kelcat)
+
+```
+
+## --- p-valeurs du tableau 4 ---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+dataTDAH0 <- filter(data3PSY, code_conf_rec %in% list_id[["idTDAH_2_0"]])
+dataTDAH0 <- subset(dataTDAH0, dataTDAH0$phase == "M0")
+
+dataTDAH1 <- filter(data3PSY, code_conf_rec %in% list_id[["idTDAH_2_1"]])
+dataTDAH1 <- subset(dataTDAH1, dataTDAH1$phase == "M0")
+
+kelcat <- data$tdah_cat
+
+# ___ Liste des p-valeurs du tableau 4 ___ #
+
+T4_pval <- list()
+
+# Genre
+T4_pval[["gender"]] <- test_quali(data$gender, kelcat)
+
+# Âge
+x = dataTDAH0$age ; y = dataTDAH1$age
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+T4_pval[["age"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+# T4_pval[["age"]] <- wilcox.test(x, y)$p.value
+
+# Lieu de naissance
+T4_pval[["lieu"]] <- test_quali(data$lieu, kelcat)
+
+# Ville
+T4_pval[["ville"]] <- test_quali(data$ville, kelcat)
+
+# Niveau d'étude
+T4_pval[["niveaudetude"]] <- test_quali(data$niveaudetude, kelcat)
+
+# TSPT (catégories)
+T4_pval[["tspt_cat"]] <- test_quali(data$tspt_cat, kelcat)
+
+# Score à l'IES-R
+x = dataTDAH0$tspt_score ; y = dataTDAH1$tspt_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T4_pval[["tspt_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T4_pval[["tspt_score"]] <- wilcox.test(x, y)$p.value
+
+# ANX (catégories)
+T4_pval[["anx_cat"]] <- test_quali(data$anx_cat, kelcat)
+
+# Score au BAI
+x = dataTDAH0$anx_score ; y = dataTDAH1$anx_score
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T4_pval[["anx_score"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T4_pval[["anx_score"]] <- wilcox.test(x, y)$p.value
+
+# TDAH (catégories)
+# ___
+
+# Score au WURS-25
+# ___
+
+# Fréquentation SCMR
+T4_pval[["scmry3"]] <- test_quali(data$scmry3, kelcat)
+
+# Au moins une pratique à risque (30 derniers jours)
+T4_pval[["hvy1"]] <- test_quali(data$hvy1, kelcat)
+
+# Nombre de pratiques à risque (dernier mois)
+x = dataTDAH0$hvy2_P ; y = dataTDAH1$hvy2_P
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T4_pval[["hvy2"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T4_pval[["hvy2"]] <- wilcox.test(x, y)$p.value
+
+# Fréquence d'injection
+T4_pval[["freqinjection"]] <- test_quali(data$freqinjection, kelcat)
+
+# Statut VIH déclaré
+T4_pval[["vih"]] <- test_quali(data$vih, kelcat)
+
+# Statut VHC déclaré
+T4_pval[["vhc"]] <- test_quali(data$vhc, kelcat)
+
+# Suit un TSO
+T4_pval[["tso_actuel"]] <- test_quali(data$tso_actuel, kelcat)
+
+# Usage quotidien de cocaïne
+T4_pval[["cocaine_quot"]] <- test_quali(data$cocaine_quot, kelcat)
+
+# Usage quotidien de crack
+T4_pval[["crack_quot"]] <- test_quali(data$crack_quot, kelcat)
+
+# Usage de cannabis pour plus de 10 jours par mois
+T4_pval[["cannabis10j"]] <- test_quali(data$cannabis10j, kelcat)
+
+# Usage de buprénorphine hors prescription
+T4_pval[["buprenorphine_hpresc"]] <- test_quali(data$buprenorphine_hpresc, kelcat)
+
+# Usage de méthadone hors prescription
+T4_pval[["methadone_hpresc"]] <- test_quali(data$methadone_hpresc, kelcat)
+
+# Usage quotidien de morphine hors prescription
+T4_pval[["morphine_quot_hpresc"]] <- test_quali(data$morphine_quot_hpresc, kelcat)
+
+# Nombre de produits différents consommés au moins une fois
+x = dataTDAH0$nbproduitsdif ; y = dataTDAH1$nbproduitsdif
+var.test(x,y)$p.value ; var.egales = FALSE ; if (var.test(x,y)$p.value > 0.05) {var.egales = TRUE}
+hist(x)
+hist(y)
+# Si hist normaux
+# T4_pval[["nbproduitsdif"]] <- t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value
+# Si hist pas normaux
+T4_pval[["nbproduitsdif"]] <- wilcox.test(x, y)$p.value
+
+# En couple actuellement
+T4_pval[["encouple"]] <- test_quali(data$encouple, kelcat)
+
+# Type de logement (précarité du logement)
+T4_pval[["precaritelogement"]] <- test_quali(data$precaritelogement, kelcat)
+
+# Activité professionnelle
+T4_pval[["activite"]] <- test_quali(data$activite, kelcat)
+
+# Couverture sociale
+T4_pval[["couvsociale"]] <- test_quali(data$couvsociale, kelcat)
+
+# Aide alimentaire
+T4_pval[["aidealimentaire"]] <- test_quali(data$aidealimentaire, kelcat)
+
+# Allocation ou pension
+T4_pval[["allocpension"]] <- test_quali(data$allocpension, kelcat)
+
+# Prison au cours de la vie
+T4_pval[["prison"]] <- test_quali(data$prison, kelcat)
+
+# Tentative de suicide au cours de la vie
+T4_pval[["tentative_suic"]] <- test_quali(data$tentative_suic, kelcat)
+
+# Consommation problématique d'alcool
+T4_pval[["consoalcool"]] <- test_quali(data$consoalcool, kelcat)
+
+# Nombre de cigarettes par jour
+T4_pval[["cigarette"]] <- test_quali(data$cigarette, kelcat)
+
+
+options(warn = 0)
+```
+
+## --- Vérification normalité pour les variables quantitatives ---
+```{r, eval=FALSE , warning=FALSE, message=FALSE}
+options(warn = -1)
+# ================== Tableau 2 : TSPT ================== #
+
+dataTSPT0 <- filter(data3PSY, code_conf_rec %in% list_id[["idTSPT_2_0"]])
+dataTSPT0 <- subset(dataTSPT0, dataTSPT0$phase == "M0")
+
+dataTSPT1 <- filter(data3PSY, code_conf_rec %in% list_id[["idTDAH_2_1"]])
+dataTSPT1 <- subset(dataTSPT1, dataTSPT1$phase == "M0")
+
+# Âge
+hist(as.numeric(dataTSPT0$age), breaks = 20)
+hist(as.numeric(dataTSPT1$age), breaks = 20)
+
+# Score au BAI (anx_score)
+hist(as.numeric(dataTSPT0$anx_score), breaks = 20)
+hist(as.numeric(dataTSPT1$anx_score), breaks = 20)
+
+# Score au WURS-25 (tdah_score)
+hist(as.numeric(dataTSPT0$tdah_score), breaks = 20)
+hist(as.numeric(dataTSPT1$tdah_score), breaks = 20)
+
+# Nombre de pratiques à risque (30 derniers jours)
+hist(as.numeric(dataTSPT0$hvy2), breaks = 20)
+hist(as.numeric(dataTSPT1$hvy2), breaks = 20)
+
+# Nombre de produits différents consommés au moins une fois
+hist(as.numeric(dataTSPT0$nbproduitsdif), breaks = 20)
+hist(as.numeric(dataTSPT1$nbproduitsdif), breaks = 20)
+
+
+# ================== Tableau 3a : Anxiété ================== #
+
+dataANX0 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_0"]])
+dataANX0 <- subset(dataANX0, dataANX0$phase == "M0")
+
+dataANX1 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_1"]])
+dataANX1 <- subset(dataANX1, dataANX1$phase == "M0")
+
+# Âge
+hist(as.numeric(dataANX0$age), breaks = 20)
+hist(as.numeric(dataANX1$age), breaks = 20)
+
+# Score à l'IES-R (tspt_score)
+hist(as.numeric(dataANX0$tspt_score), breaks = 10)
+hist(as.numeric(dataANX1$tspt_score), breaks = 10)
+
+# Score au WURS-25 (tdah_score)
+hist(as.numeric(dataANX0$tdah_score), breaks = 20)
+hist(as.numeric(dataANX1$tdah_score), breaks = 20)
+
+# Nombre de pratiques à risque (30 derniers jours)
+hist(as.numeric(dataANX0$hvy2), breaks = 20)
+hist(as.numeric(dataANX1$hvy2), breaks = 20)
+
+# Nombre de produits différents consommés au moins une fois
+hist(as.numeric(dataANX0$nbproduitsdif), breaks = 20)
+hist(as.numeric(dataANX1$nbproduitsdif), breaks = 20)
+
+
+# ================== Tableau 3b : Anxiété ================== #
+
+dataANX0 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_0"]])
+dataANX0 <- subset(dataANX0, dataANX0$phase == "M6")
+
+dataANX1 <- filter(data3PSY, code_conf_rec %in% list_id[["idANX_2_1"]])
+dataANX1 <- subset(dataANX1, dataANX1$phase == "M6")
+
+
+# Âge
+hist(as.numeric(dataANX0$age), breaks = 20)
+hist(as.numeric(dataANX1$age), breaks = 20)
+
+# Score à l'IES-R (tspt_score)
+hist(as.numeric(dataANX0$tspt_score), breaks = 10)
+hist(as.numeric(dataANX1$tspt_score), breaks = 10)
+
+# Score au WURS-25 (tdah_score)
+hist(as.numeric(dataANX0$tdah_score), breaks = 20)
+hist(as.numeric(dataANX1$tdah_score), breaks = 20)
+
+# Nombre de pratiques à risque (30 derniers jours)
+hist(as.numeric(dataANX0$hvy2), breaks = 20)
+hist(as.numeric(dataANX1$hvy2), breaks = 20)
+
+# Nombre de produits différents consommés au moins une fois
+hist(as.numeric(dataANX0$nbproduitsdif), breaks = 20)
+hist(as.numeric(dataANX1$nbproduitsdif), breaks = 20)
+
+```
+
+## --- p-valeurs significatives ---
+```{r, eval=TRUE , warning=FALSE, message=FALSE}
+T1_pval_sgn <- T1_pval[which(T1_pval <= 0.05)]
+T2_pval_sgn <- T2_pval[which(T2_pval <= 0.05)]
+T3_pval_sgn <- T3_pval[which(T3_pval <= 0.05)]
+T4_pval_sgn <- T4_pval[which(T4_pval <= 0.05)]
+```
+
+
+# ---- Ajustement des p-valeurs ---- 
+```{r, eval=TRUE , warning=FALSE, message=FALSE}
+# ___ Benjamini-Hochberg ___ #
+T1_pval_ajust <- p.adjust(T1_pval, method = "BH")
+T1_pval_ajust <- as.list(T1_pval_ajust)
+T1_pval_ajust_sgn <- T1_pval_ajust[which(T1_pval_ajust <= 0.05)]
+
+T2_pval_ajust <- p.adjust(T2_pval, method = "BH")
+T2_pval_ajust <- as.list(T2_pval_ajust)
+T2_pval_ajust_sgn <- T2_pval_ajust[which(T2_pval_ajust <= 0.05)]
+
+T3_pval_ajust <- p.adjust(T3_pval, method = "BH")
+T3_pval_ajust <- as.list(T3_pval_ajust)
+T3_pval_ajust_sgn <- T3_pval_ajust[which(T3_pval_ajust <= 0.05)]
+
+T4_pval_ajust <- p.adjust(T4_pval, method = "BH")
+T4_pval_ajust <- as.list(T4_pval_ajust)
+T4_pval_ajust_sgn <- T4_pval_ajust[which(T4_pval_ajust <= 0.05)]
+```
+
+
+```{r, eval=TRUE , warning=FALSE, message=FALSE}
+list_tables[["T1_pval"]] <- T1_pval
+list_tables[["T1_pval_sgn"]] <- T1_pval_sgn
+list_tables[["T1_pval_ajust"]] <- T1_pval_ajust
+list_tables[["T1_pval_ajust_sgn"]] <- T1_pval_ajust_sgn
+
+list_tables[["T2_pval"]] <- T2_pval
+list_tables[["T2_pval_sgn"]] <- T2_pval_sgn
+list_tables[["T2_pval_ajust"]] <- T2_pval_ajust
+list_tables[["T2_pval_ajust_sgn"]] <- T2_pval_ajust_sgn
+
+list_tables[["T3_pval"]] <- T3_pval
+list_tables[["T3_pval_sgn"]] <- T3_pval_sgn
+list_tables[["T3_pval_ajust"]] <- T3_pval_ajust
+list_tables[["T3_pval_ajust_sgn"]] <- T3_pval_ajust_sgn
+
+list_tables[["T4_pval"]] <- T4_pval
+list_tables[["T4_pval_sgn"]] <- T4_pval_sgn
+list_tables[["T4_pval_ajust"]] <- T4_pval_ajust
+list_tables[["T4_pval_ajust_sgn"]] <- T4_pval_ajust_sgn
+```
+
+# Choix des objets à garder
+```{r}
+keep_var <- c("list_tables")
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+suppr <- ls()
+suppr <- suppr[! suppr %in% keep_var]
+rm(list = suppr)
+rm(suppr)
+save.image(as.character(paste(getwd(),"COS_ENV_TABLES.RData", sep = "/")))
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```

@@ -1,0 +1,63 @@
+---
+title: "Recap"
+author: "Clément Bonnet"
+date: "21/02/2022 - 29/07/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+gc()
+shell("cls")
+
+# ========================================================= #
+# ============ CODE R STAGE M2 BIOSTATISTIQUES ============ #
+# ===================== Clément Bonnet ==================== #
+# ========================================================= #
+
+setwd("~/stage")
+
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# =============== RUN ALL CHUNKS ABOVE HERE =============== #
+# ========================================================= #
+```
+
+
+# Environnement de travail principal : Jeux de données et Identifiants
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+load(as.character(paste(getwd(),"COS_ENV_CORE.RData", sep = "/")))
+```
+
+# Environnement de travail tableaux : P-valeurs
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_TABLES.RData", sep = "/")))
+```
+
+# Environnement de travail diagrammes de Sankey et en cordes : Plots
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_FIGURES.RData", sep = "/")))
+```
+
+# Environnement de travail analyses association : Modèles, plots, autres
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_ASSOCIATIONS.RData", sep = "/")))
+```
+
+
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+save.image(as.character(paste(getwd(),"COS_ENV_ALL.RData", sep = "/")))
+# rm(list = ls())
+gc()
+shell("cls")
+```
+

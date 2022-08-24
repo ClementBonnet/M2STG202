@@ -1,0 +1,1067 @@
+---
+title: "Analyses - Diagrammes de Sankey et diagrammes en cordes"
+author: "Clément Bonnet"
+date: "21/02/2022 - 29/07/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# ============ CODE R STAGE M2 BIOSTATISTIQUES ============ #
+# ===================== Clément Bonnet ==================== #
+# ========================================================= #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ======= Emplacement de travail ======= #
+setwd("~/stage")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Chargement des librairies === #
+
+library(devtools)
+library(remotes)
+
+# devtools::install_github("mattflor/chorddiag")
+# remotes::install_github("davidsjoberg/ggsankey")
+
+library(berryFunctions) # pour le is.error
+library(chorddiag) # pour les diagrammes en corde
+library(dplyr) #
+library(epiDisplay) #
+library(epiR) #
+# library(ggmosaic) # pour les graphiques mosaïques
+library(ggplot2) # pour les graphiques
+library(ggsankey) # pour les diagrammes de Sankey
+library(haven) # pour importer des données de fichiers Stata ou SAS
+library(Hmisc) # pour la description de variables
+library(htmlwidgets)
+library(magrittr) # pour les diagrammes en corde
+library(pastecs) # pour la description de variables
+# library(rcom) #
+# library(rJava) #
+library(tidyverse) #
+# library(xlsx) #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_CORE.RData", sep = "/")))
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+gc()
+shell("cls")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# =============== RUN ALL CHUNKS ABOVE HERE =============== #
+# ========================================================= #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+list_data_figures <- list()
+list_figures <- list()
+```
+
+# ---- Diagramme de cordes pour les catégories de psychopathologies ---- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Version 342 === #
+
+chordPSYCHO_v342 <- read.csv2("chordpsycho_v342.csv", header = FALSE) %>% as.matrix()
+colnames(chordPSYCHO_v342) <- rownames(chordPSYCHO_v342) <- c("TSPT_0","TSPT_1","TSPT_2","ANX_0","ANX_1","ANX_2","ANX_3","TDAH_0","TDAH_1")
+
+chordPSYCHO_TSPT3_ANX4 <- chordPSYCHO_v342[1:7,1:7]
+chordPSYCHO_TSPT3_TDAH2 <- cbind(rbind(chordPSYCHO_v342[1:3,1:3],chordPSYCHO_v342[8:9,1:3]),rbind(chordPSYCHO_v342[1:3,8:9],chordPSYCHO_v342[8:9,8:9]))
+chordPSYCHO_ANX4_TDAH2 <- chordPSYCHO_v342[4:9,4:9]
+
+palette_psy_v342 <- c("#9ccecf","#6ea8a9","#358385","#d6b0bc","#ab687d","#8d4158","#681d34","#9fe3a7","#57975f")
+
+chord_v342 <- chorddiag(chordPSYCHO_v342, groupColors = palette_psy_v342, showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_v342,"plot_chord_3PSY_v342.html")
+
+chord_TSPT3_ANX4 <- chorddiag(chordPSYCHO_TSPT3_ANX4, groupColors = palette_psy_v342[1:7], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_TSPT3_ANX4,"plot_chord_TSPT3-ANX4.html")
+
+chord_TSPT3_TDAH2 <- chorddiag(chordPSYCHO_TSPT3_TDAH2, groupColors = palette_psy_v342[c(1:3,8:9)], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_TSPT3_TDAH2,"plot_chord_TSPT3-TDAH2.html")
+
+chord_ANX4_TDAH2 <- chorddiag(chordPSYCHO_ANX4_TDAH2, groupColors = palette_psy_v342[4:9], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_ANX4_TDAH2,"plot_chord_ANX4-TDAH2.html")
+
+list_data_figures[["chordPSYCHO_v342"]] <- chordPSYCHO_v342
+list_data_figures[["chordPSYCHO_TSPT3_ANX4"]] <- chordPSYCHO_TSPT3_ANX4
+list_data_figures[["chordPSYCHO_TSPT3_TDAH2"]] <- chordPSYCHO_TSPT3_TDAH2
+list_data_figures[["chordPSYCHO_ANX4_TDAH2"]] <- chordPSYCHO_ANX4_TDAH2
+
+list_figures[["chord_v342"]] <- chord_v342
+list_figures[["chord_TSPT3_ANX4"]] <- chord_TSPT3_ANX4
+list_figures[["chord_TSPT3_TDAH2"]] <- chord_TSPT3_TDAH2
+list_figures[["chord_ANX4_TDAH2"]] <- chord_ANX4_TDAH2
+
+
+# === Version 222 === #
+
+chordPSYCHO_v222 <- read.csv2("chordpsycho_v222.csv", header = FALSE) %>% as.matrix()
+colnames(chordPSYCHO_v222) <- rownames(chordPSYCHO_v222) <- c("TSPT_0","TSPT_1","ANX2_0","ANX2_1","TDAH_0","TDAH_1")
+
+chordPSYCHO_TSPT2_ANX2 <- chordPSYCHO_v222[1:4,1:4]
+chordPSYCHO_TSPT2_TDAH2 <- chordPSYCHO_v222[c(1,2,5,6),c(1,2,5,6)]
+chordPSYCHO_ANX2_TDAH2 <- chordPSYCHO_v222[3:6,3:6]
+
+palette_psy_v222 <- c("#9ccecf","#358385","#f2c4c4","#ab4343","#9fe3a7","#57975f")
+
+chord_v222 <- chorddiag(chordPSYCHO_v222, groupColors = palette_psy_v222, showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_v222,"plot_chord_3PSY_v222.html")
+
+chord_TSPT2_ANX2 <- chorddiag(chordPSYCHO_TSPT2_ANX2, groupColors = palette_psy_v222[1:4], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_TSPT2_ANX2, "plot_chord_TSPT2-ANX2.html")
+
+chord_TSPT2_TDAH2 <- chorddiag(chordPSYCHO_TSPT2_TDAH2, groupColors = palette_psy_v222[c(1,2,5,6)], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_TSPT2_TDAH2, "plot_chord_TSPT2-TDAH2.html")
+
+chord_ANX2_TDAH2 <- chorddiag(chordPSYCHO_ANX2_TDAH2, groupColors = palette_psy_v222[3:6], showTicks = FALSE, groupnamePadding = 5)
+saveWidget(chord_ANX2_TDAH2, "plot_chord_ANX2-TDAH2.html")
+
+list_data_figures[["chordPSYCHO_v222"]] <- chordPSYCHO_v222
+list_data_figures[["chordPSYCHO_TSPT2_ANX2"]] <- chordPSYCHO_TSPT2_ANX2
+list_data_figures[["chordPSYCHO_TSPT2_TDAH2"]] <- chordPSYCHO_TSPT2_TDAH2
+list_data_figures[["chordPSYCHO_ANX2_TDAH2"]] <- chordPSYCHO_ANX2_TDAH2
+
+list_figures[["chord_v222"]] <- chord_v222
+list_figures[["chord_TSPT2_ANX2"]] <- chord_TSPT2_ANX2
+list_figures[["chord_TSPT2_TDAH2"]] <- chord_TSPT2_TDAH2
+list_figures[["chord_ANX2_TDAH2"]] <- chord_ANX2_TDAH2
+
+
+```
+
+# ---- Diagrammes en bâtons empilés et groupés des 3 psychopathologies (cos3PSY) ----
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# == Version 222 == #
+
+PSYCHOtriplet_v222 <- list_data[["PSYCHOtriplet_v222"]]
+
+tsptsgbarplot222 <- ggplot(PSYCHOtriplet_v222, aes(x=TDAH, y = pct, fill=TSPT)) + geom_col() + facet_grid(.~ANX) + scale_fill_manual(values=palette_psy_v222[1:2]) + ylab("Effectif") + labs(subtitle = "Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+tsptsgbarplot222
+
+pdf(file="figure/plot_sgbarplot_v222_tspt_cos3psy.pdf")
+tsptsgbarplot222
+dev.off()
+
+anxsgbarplot222 <- ggplot(PSYCHOtriplet_v222, aes(x=TSPT, y = pct, fill=ANX)) + geom_col() + facet_grid(.~TDAH) + scale_fill_manual(values=palette_psy_v222[3:4]) + ylab("Effectif") + labs(subtitle = "TDAH", fill="Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+anxsgbarplot222
+
+pdf(file="figure/plot_sgbarplot_v222_anx_cos3psy.pdf")
+anxsgbarplot222
+dev.off()
+
+tdahsgbarplot222 <- ggplot(PSYCHOtriplet_v222, aes(x=ANX, y = pct, fill=TDAH)) + geom_col() + facet_grid(.~TSPT) + scale_fill_manual(values=palette_psy_v222[5:6]) + xlab("Anxiété") + ylab("Effectif") + labs(subtitle = "TSPT") + theme(plot.subtitle = element_text(hjust = 0.5))
+tdahsgbarplot222
+
+pdf(file="figure/plot_sgbarplot_v222_tdah_cos3psy.pdf")
+tdahsgbarplot222
+dev.off()
+
+list_figures[["tsptsgbarplot222"]] <- tsptsgbarplot222
+list_figures[["anxsgbarplot222"]] <- anxsgbarplot222
+list_figures[["tdahsgbarplot222"]] <- tdahsgbarplot222
+
+
+# == Version 342 == #
+
+PSYCHOtriplet_v342 <- list_data[["PSYCHOtriplet_v342"]]
+
+tsptsgbarplot342 <- ggplot(PSYCHOtriplet_v342, aes(x=TDAH, y = pct, fill=TSPT)) + geom_col() + facet_grid(.~ANX) + scale_fill_manual(values=palette_psy_v342[1:3]) + ylab("Effectif") + labs(subtitle = "Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+tsptsgbarplot342
+
+pdf(file="figure/plot_sgbarplot_v342_tspt_cos3psy.pdf")
+tsptsgbarplot342
+dev.off()
+
+anxsgbarplot342 <- ggplot(PSYCHOtriplet_v342, aes(x=TSPT, y = pct, fill=ANX)) + geom_col() + facet_grid(.~TDAH) + scale_fill_manual(values=palette_psy_v342[4:7]) + ylab("Effectif") + labs(subtitle = "TDAH", fill="Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+anxsgbarplot342
+
+pdf(file="figure/plot_sgbarplot_v342_anx_cos3psy.pdf")
+anxsgbarplot342
+dev.off()
+
+tdahsgbarplot342 <- ggplot(PSYCHOtriplet_v342, aes(x=ANX, y = pct, fill=TDAH)) + geom_col() + facet_grid(.~TSPT) + scale_fill_manual(values=palette_psy_v342[8:9]) + xlab("Anxiété") + ylab("Effectif") + labs(subtitle = "TSPT") + theme(plot.subtitle = element_text(hjust = 0.5))
+tdahsgbarplot342
+
+pdf(file="figure/plot_sgbarplot_v342_tdah_cos3psy.pdf")
+tdahsgbarplot342
+dev.off()
+
+list_figures[["tsptsgbarplot342"]] <- tsptsgbarplot342
+list_figures[["anxsgbarplot342"]] <- anxsgbarplot342
+list_figures[["tdahsgbarplot342"]] <- tdahsgbarplot342
+
+```
+
+# ---- Diagrammes en bâtons empilés et groupés des 3 psychopathologies pour ceux qui ont au moins 1 fréq SCMR (cos3PSYSCMR) ----
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# == Version 222 == #
+
+PSYCHOtriplet_v222_SCMR <- list_data[["PSYCHOtriplet_v222_SCMR"]]
+
+tsptsgbarplot222_SCMR <- ggplot(PSYCHOtriplet_v222_SCMR, aes(x=TDAH, y = pct, fill=TSPT)) + geom_col() + facet_grid(.~ANX) + scale_fill_manual(values=palette_psy_v222[1:2]) + ylab("Effectif") + labs(subtitle = "Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+tsptsgbarplot222_SCMR
+
+pdf(file="figure/plot_sgbarplot_v222_tspt_cos3psyscmr.pdf")
+tsptsgbarplot222_SCMR
+dev.off()
+
+anxsgbarplot222_SCMR <- ggplot(PSYCHOtriplet_v222, aes(x=TSPT, y = pct, fill=ANX)) + geom_col() + facet_grid(.~TDAH) + scale_fill_manual(values=palette_psy_v222[3:4]) + ylab("Effectif") + labs(subtitle = "TDAH", fill="Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+anxsgbarplot222_SCMR
+
+pdf(file="figure/plot_sgbarplot_v222_anx_cos3psyscmr.pdf")
+anxsgbarplot222_SCMR
+dev.off()
+
+tdahsgbarplot222_SCMR <- ggplot(PSYCHOtriplet_v222, aes(x=ANX, y = pct, fill=TDAH)) + geom_col() + facet_grid(.~TSPT) + scale_fill_manual(values=palette_psy_v222[5:6]) + xlab("Anxiété") + ylab("Effectif") + labs(subtitle = "TSPT") + theme(plot.subtitle = element_text(hjust = 0.5))
+tdahsgbarplot222_SCMR
+
+pdf(file="figure/plot_sgbarplot_v222_tdah_cos3psyscmr.pdf")
+tdahsgbarplot222_SCMR
+dev.off()
+
+list_figures[["tsptsgbarplot222_SCMR"]] <- tsptsgbarplot222_SCMR
+list_figures[["anxsgbarplot222_SCMR"]] <- anxsgbarplot222_SCMR
+list_figures[["tdahsgbarplot222_SCMR"]] <- tdahsgbarplot222_SCMR
+
+
+# == Version 342 == #
+
+PSYCHOtriplet_v342_SCMR <- list_data[["PSYCHOtriplet_v342_SCMR"]]
+
+tsptsgbarplot342_SCMR <- ggplot(PSYCHOtriplet_v342_SCMR, aes(x=TDAH, y = pct, fill=TSPT)) + geom_col() + facet_grid(.~ANX) + scale_fill_manual(values=palette_psy_v342[1:3]) + ylab("Effectif") + labs(subtitle = "Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+tsptsgbarplot342_SCMR
+
+pdf(file="figure/plot_sgbarplot_v342_tspt_cos3psyscmr.pdf")
+tsptsgbarplot342_SCMR
+dev.off()
+
+anxsgbarplot342_SCMR <- ggplot(PSYCHOtriplet_v342, aes(x=TSPT, y = pct, fill=ANX)) + geom_col() + facet_grid(.~TDAH) + scale_fill_manual(values=palette_psy_v342[4:7]) + ylab("Effectif") + labs(subtitle = "TDAH", fill="Anxiété") + theme(plot.subtitle = element_text(hjust = 0.5))
+anxsgbarplot342_SCMR
+
+pdf(file="figure/plot_sgbarplot_v342_anx_cos3psyscmr.pdf")
+anxsgbarplot342_SCMR
+dev.off()
+
+tdahsgbarplot342_SCMR <- ggplot(PSYCHOtriplet_v342, aes(x=ANX, y = pct, fill=TDAH)) + geom_col() + facet_grid(.~TSPT) + scale_fill_manual(values=palette_psy_v342[8:9]) + xlab("Anxiété") + ylab("Effectif") + labs(subtitle = "TSPT") + theme(plot.subtitle = element_text(hjust = 0.5))
+tdahsgbarplot342_SCMR
+
+pdf(file="figure/plot_sgbarplot_v342_tdah_cos3psyscmr.pdf")
+tdahsgbarplot342_SCMR
+dev.off()
+
+list_figures[["tsptsgbarplot342_SCMR"]] <- tsptsgbarplot342_SCMR
+list_figures[["anxsgbarplot342_SCMR"]] <- anxsgbarplot342_SCMR
+list_figures[["tdahsgbarplot342_SCMR"]] <- tdahsgbarplot342_SCMR
+```
+
+# ---- Diagramme de Sankey ----
+
+## --- Fréq. SCMR (cos3PSY) --- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cos3PSY <- list_data[["cos3PSY"]]
+sankeySCMR <- cos3PSY %>% dplyr::select(code_conf_rec,phase,scmry3_P)
+
+sankeySCMR <- rename.variable(sankeySCMR,"scmry3_P","scmry3")
+
+idPSYSCMR_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSY"]])
+
+sankeySCMR$next_phase <- NA
+sankeySCMR$next_scmry3 <- NA
+
+for (i in idPSYSCMR_dropoutM12){
+  sankeySCMR <- rbind(sankeySCMR, c(NA,"M12","Sortie",NA,NA))
+}
+sankeySCMR$code_conf_rec[1273:1336] <- idPSYSCMR_dropoutM12
+
+sankeySCMR <- arrange(sankeySCMR,code_conf_rec)
+
+sankeySCMR$phase <- as.factor(sankeySCMR$phase)
+sankeySCMR$scmry3 <- as.factor(sankeySCMR$scmry3)
+sankeySCMR$next_phase <- as.factor(sankeySCMR$next_phase)
+sankeySCMR$next_scmry3 <- as.factor(sankeySCMR$next_scmry3)
+
+sankeySCMR$scmry3 <- factor(sankeySCMR$scmry3, levels = c("Sortie", "Aucune", "Fréq. basse", "Fréq. haute"))
+sankeySCMR$next_phase <- factor(sankeySCMR$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeySCMR$next_scmry3 <- factor(sankeySCMR$next_scmry3, levels = c("Sortie", "Aucune", "Fréq. basse", "Fréq. haute"))
+
+for (i in 1:nrow(sankeySCMR)-1){
+  while(isTRUE(sankeySCMR$code_conf_rec[i] == sankeySCMR$code_conf_rec[i+1])){
+    sankeySCMR$next_phase[i] <- as.character(sankeySCMR$phase[i+1])
+    sankeySCMR$next_scmry3[i] <- sankeySCMR$scmry3[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeySCMR$scmry3,sankeySCMR$phase)
+
+sankeySCMR$n <- NA
+sankeySCMR$n[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,1]
+sankeySCMR$n[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,1]
+sankeySCMR$n[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,1]
+sankeySCMR$n[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,1]
+sankeySCMR$n[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,2]
+sankeySCMR$n[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,2]
+sankeySCMR$n[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,2]
+sankeySCMR$n[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,2]
+sankeySCMR$n[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,3]
+sankeySCMR$n[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,3]
+sankeySCMR$n[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,3]
+sankeySCMR$n[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,3]
+sankeySCMR$n[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,4]
+sankeySCMR$n[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,4]
+sankeySCMR$n[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,4]
+sankeySCMR$n[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,4]
+
+tabu <- prop.table(table(sankeySCMR$scmry3,sankeySCMR$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeySCMR$pct <- NA
+sankeySCMR$pct[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,1]
+sankeySCMR$pct[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,1]
+sankeySCMR$pct[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,1]
+sankeySCMR$pct[sankeySCMR$phase == "M0" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,1]
+sankeySCMR$pct[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,2]
+sankeySCMR$pct[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,2]
+sankeySCMR$pct[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,2]
+sankeySCMR$pct[sankeySCMR$phase == "M3" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,2]
+sankeySCMR$pct[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,3]
+sankeySCMR$pct[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,3]
+sankeySCMR$pct[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,3]
+sankeySCMR$pct[sankeySCMR$phase == "M6" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,3]
+sankeySCMR$pct[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Sortie"] <- tabu[1,4]
+sankeySCMR$pct[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Aucune"] <- tabu[2,4]
+sankeySCMR$pct[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Fréq. basse"] <- tabu[3,4]
+sankeySCMR$pct[sankeySCMR$phase == "M12" & sankeySCMR$scmry3 == "Fréq. haute"] <- tabu[4,4]
+
+sankey1 <- ggplot(sankeySCMR, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = scmry3, 
+                       next_node = next_scmry3, 
+                       fill = factor(scmry3),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey1 <- sankey1 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey1 <- sankey1 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey1 <- sankey1 + guides(fill = guide_legend(title = "Fréquence SCMR"))
+sankey1 <- sankey1 + theme_sankey(base_size = 11)
+sankey1 <- sankey1 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey1 <- sankey1 + xlab("Entretien")
+
+sankey1
+
+pdf(file="figure/plot_sankey_scmr_cos3psy.pdf")
+sankey1
+dev.off()
+
+list_data_figures[["sankeySCMR_PSY"]] <- sankeySCMR
+list_figures[["sankeySCMR_PSY"]] <- sankey1
+
+```
+
+## --- Fréq. SCMR pour ceux qui ont fréq 1 fois (cos3PSYSCMR) --- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cos3PSYSCMR <- list_data[["cos3PSYSCMR"]]
+sankeySCMR_1 <- cos3PSYSCMR %>% dplyr::select(code_conf_rec,phase,scmry3_P)
+
+sankeySCMR_1 <- rename.variable(sankeySCMR_1,"scmry3_P","scmry3")
+
+idPSYSCMR_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSYSCMR"]])
+
+sankeySCMR_1$next_phase <- NA
+sankeySCMR_1$next_scmry3 <- NA
+
+for (i in idPSYSCMR_dropoutM12){
+  sankeySCMR_1 <- rbind(sankeySCMR_1, c(NA,"M12","Sortie",NA,NA))
+}
+sankeySCMR_1$code_conf_rec[620:656] <- idPSYSCMR_dropoutM12
+
+sankeySCMR_1 <- arrange(sankeySCMR_1,code_conf_rec)
+
+
+sankeySCMR_1$phase <- as.factor(sankeySCMR_1$phase)
+sankeySCMR_1$scmry3 <- as.factor(sankeySCMR_1$scmry3)
+sankeySCMR_1$next_phase <- as.factor(sankeySCMR_1$next_phase)
+sankeySCMR_1$next_scmry3 <- as.factor(sankeySCMR_1$next_scmry3)
+
+sankeySCMR_1$scmry3 <- factor(sankeySCMR_1$scmry3, levels = c("Sortie", "Aucune", "Fréq. basse", "Fréq. haute"))
+sankeySCMR_1$next_phase <- factor(sankeySCMR_1$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeySCMR_1$next_scmry3 <- factor(sankeySCMR_1$next_scmry3, levels = c("Sortie", "Aucune", "Fréq. basse", "Fréq. haute"))
+
+for (i in 1:nrow(sankeySCMR_1)-1){
+  while(isTRUE(sankeySCMR_1$code_conf_rec[i] == sankeySCMR_1$code_conf_rec[i+1])){
+    sankeySCMR_1$next_phase[i] <- as.character(sankeySCMR_1$phase[i+1])
+    sankeySCMR_1$next_scmry3[i] <- sankeySCMR_1$scmry3[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeySCMR_1$scmry3,sankeySCMR_1$phase)
+
+sankeySCMR_1$n <- NA
+sankeySCMR_1$n[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,1]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,1]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,1]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,1]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,2]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,2]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,2]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,2]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,3]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,3]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,3]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,3]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,4]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,4]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,4]
+sankeySCMR_1$n[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,4]
+
+tabu <- prop.table(table(sankeySCMR_1$scmry3,sankeySCMR_1$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeySCMR_1$pct <- NA
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,1]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,1]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,1]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M0" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,1]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,2]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,2]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,2]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M3" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,2]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,3]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,3]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,3]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M6" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,3]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Sortie"] <- tabu[1,4]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Aucune"] <- tabu[2,4]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Fréq. basse"] <- tabu[3,4]
+sankeySCMR_1$pct[sankeySCMR_1$phase == "M12" & sankeySCMR_1$scmry3 == "Fréq. haute"] <- tabu[4,4]
+
+sankey11 <- ggplot(sankeySCMR_1, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = scmry3, 
+                       next_node = next_scmry3, 
+                       fill = factor(scmry3),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey11 <- sankey11 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey11 <- sankey11 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey11 <- sankey11 + guides(fill = guide_legend(title = "Fréquence SCMR"))
+sankey11 <- sankey11 + theme_sankey(base_size = 11)
+sankey11 <- sankey11 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey11 <- sankey11 + xlab("Entretien")
+
+sankey11
+
+pdf(file="figure/plot_sankey_scmr_cos3psyscmr.pdf")
+sankey11
+dev.off()
+
+list_data_figures[["sankeySCMR_PSYSCMR"]] <- sankeySCMR_1
+list_figures[["sankeySCMR_PSYSCMR"]] <- sankey11
+```
+
+## --- Fréq. SCMR pour ceux qui ont fréq 1 fois (cos3PSYSCMR) et qui ont fait les 4 entretiens --- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeySCMR_2 <- cos3PSYSCMR %>% dplyr::select(code_conf_rec,phase,scmry3_P)
+sankeySCMR_2 <- subset(sankeySCMR_2, sankeySCMR_2$code_conf_rec %in% list_id[["id4Ent"]])
+
+sankeySCMR_2 <- rename.variable(sankeySCMR_2,"scmry3_P","scmry3")
+
+sankeySCMR_2$next_phase <- NA
+sankeySCMR_2$next_scmry3 <- NA
+
+sankeySCMR_2$phase <- as.factor(sankeySCMR_2$phase)
+sankeySCMR_2$scmry3 <- as.factor(sankeySCMR_2$scmry3)
+sankeySCMR_2$next_phase <- as.factor(sankeySCMR_2$next_phase)
+sankeySCMR_2$next_scmry3 <- as.factor(sankeySCMR_2$next_scmry3)
+
+sankeySCMR_2$scmry3 <- factor(sankeySCMR_2$scmry3, levels = c("Aucune", "Fréq. basse", "Fréq. haute"))
+sankeySCMR_2$next_phase <- factor(sankeySCMR_2$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeySCMR_2$next_scmry3 <- factor(sankeySCMR_2$next_scmry3, levels = c("Aucune", "Fréq. basse", "Fréq. haute"))
+
+for (i in 1:nrow(sankeySCMR_2)-1){
+  while(isTRUE(sankeySCMR_2$code_conf_rec[i] == sankeySCMR_2$code_conf_rec[i+1])){
+    sankeySCMR_2$next_phase[i] <- as.character(sankeySCMR_2$phase[i+1])
+    sankeySCMR_2$next_scmry3[i] <- sankeySCMR_2$scmry3[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeySCMR_2$scmry3,sankeySCMR_2$phase)
+
+sankeySCMR_2$n <- NA
+sankeySCMR_2$n[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,1]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,1]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,1]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,2]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,2]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,2]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,3]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,3]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,3]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,4]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,4]
+sankeySCMR_2$n[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,4]
+
+tabu <- prop.table(table(sankeySCMR_2$scmry3,sankeySCMR_2$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeySCMR_2$pct <- NA
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,1]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,1]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M0" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,1]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,2]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,2]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M3" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,2]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,3]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,3]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M6" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,3]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Aucune"] <- tabu[1,4]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Fréq. basse"] <- tabu[2,4]
+sankeySCMR_2$pct[sankeySCMR_2$phase == "M12" & sankeySCMR_2$scmry3 == "Fréq. haute"] <- tabu[3,4]
+
+sankey12 <- ggplot(sankeySCMR_2, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = scmry3, 
+                       next_node = next_scmry3, 
+                       fill = factor(scmry3),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey12 <- sankey12 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey12 <- sankey12 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey12 <- sankey12 + guides(fill = guide_legend(title = "Fréquence SCMR"))
+sankey12 <- sankey12 + theme_sankey(base_size = 11)
+sankey12 <- sankey12 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey12 <- sankey12 + xlab("Entretien")
+
+sankey12
+
+pdf(file="figure/plot_sankey_scmr_cos3psyscmr_4Ent.pdf")
+sankey12
+dev.off()
+
+list_data_figures[["sankeySCMR_PSYSCMR4Ent"]] <- sankeySCMR_2
+list_figures[["sankeySCMR_PSYSCMR4Ent"]] <- sankey12
+```
+
+## --- Pratique à risque (cos3PSY)---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeyRISQ <- cos3PSY %>% dplyr::select(code_conf_rec,phase,hvy1_P)
+
+sankeyRISQ <- rename.variable(sankeyRISQ,"hvy1_P","hvy1")
+
+sankeyRISQ$next_phase <- NA
+sankeyRISQ$next_hvy1 <- NA
+
+idPSY_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSY"]])
+
+for (i in idPSY_dropoutM12){
+  sankeyRISQ <- rbind(sankeyRISQ, c(NA,"M12","Sortie",NA,NA))
+}
+sankeyRISQ$code_conf_rec[1273:1336] <- idPSY_dropoutM12
+
+sankeyRISQ <- arrange(sankeyRISQ,code_conf_rec)
+
+sankeyRISQ$phase <- as.factor(sankeyRISQ$phase)
+sankeyRISQ$hvy1 <- as.factor(sankeyRISQ$hvy1)
+sankeyRISQ$next_phase <- as.factor(sankeyRISQ$next_phase)
+sankeyRISQ$next_hvy1 <- as.factor(sankeyRISQ$next_hvy1)
+
+sankeyRISQ$hvy1 <- factor(sankeyRISQ$hvy1, levels = c("Sortie", "0", "1"), labels = c("Sortie","Non","Oui"))
+sankeyRISQ$next_phase <- factor(sankeyRISQ$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeyRISQ$next_hvy1 <- factor(sankeyRISQ$next_hvy1, levels = c("Sortie", "0", "1"), labels = c("Sortie","Non","Oui"))
+
+for (i in 1:nrow(sankeyRISQ)-1){
+  while(isTRUE(sankeyRISQ$code_conf_rec[i] == sankeyRISQ$code_conf_rec[i+1])){
+    sankeyRISQ$next_phase[i] <- sankeyRISQ$phase[i+1]
+    sankeyRISQ$next_hvy1[i] <- sankeyRISQ$hvy1[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeyRISQ$hvy1,sankeyRISQ$phase)
+
+sankeyRISQ$n <- NA
+sankeyRISQ$n[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,1]
+sankeyRISQ$n[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,1]
+sankeyRISQ$n[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,1]
+sankeyRISQ$n[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,2]
+sankeyRISQ$n[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,2]
+sankeyRISQ$n[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,2]
+sankeyRISQ$n[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,3]
+sankeyRISQ$n[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,3]
+sankeyRISQ$n[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,3]
+sankeyRISQ$n[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,4]
+sankeyRISQ$n[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,4]
+sankeyRISQ$n[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,4]
+
+tabu <- prop.table(table(sankeyRISQ$hvy1,sankeyRISQ$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeyRISQ$pct <- NA
+sankeyRISQ$pct[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,1]
+sankeyRISQ$pct[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,1]
+sankeyRISQ$pct[sankeyRISQ$phase == "M0" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,1]
+sankeyRISQ$pct[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,2]
+sankeyRISQ$pct[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,2]
+sankeyRISQ$pct[sankeyRISQ$phase == "M3" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,2]
+sankeyRISQ$pct[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,3]
+sankeyRISQ$pct[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,3]
+sankeyRISQ$pct[sankeyRISQ$phase == "M6" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,3]
+sankeyRISQ$pct[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Sortie"] <- tabu[1,4]
+sankeyRISQ$pct[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Non"] <- tabu[2,4]
+sankeyRISQ$pct[sankeyRISQ$phase == "M12" & sankeyRISQ$hvy1 == "Oui"] <- tabu[3,4]
+
+sankey2 <- ggplot(sankeyRISQ, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = hvy1, 
+                       next_node = next_hvy1, 
+                       fill = factor(hvy1),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey2 <- sankey2 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey2 <- sankey2 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey2 <- sankey2 + guides(fill = guide_legend(title = "Pratique à risque"))
+sankey2 <- sankey2 + theme_sankey(base_size = 11)
+sankey2 <- sankey2 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey2 <- sankey2 + xlab("Entretien")
+
+sankey2
+
+pdf(file="figure/plot_sankey_risq_cos3psy.pdf")
+sankey2
+dev.off()
+
+list_data_figures[["sankeyRISQ_PSY"]] <- sankeyRISQ
+list_figures[["sankeyRISQ_PSY"]] <- sankey2
+```
+
+## --- Pratique à risque (cos3PSYSCMR)---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeyRISQ_1 <- cos3PSYSCMR %>% dplyr::select(code_conf_rec,phase,hvy1_P)
+
+sankeyRISQ_1 <- rename.variable(sankeyRISQ_1,"hvy1_P","hvy1")
+
+idPSYSCMR_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSYSCMR"]])
+
+sankeyRISQ_1$next_phase <- NA
+sankeyRISQ_1$next_hvy1 <- NA
+
+for (i in idPSYSCMR_dropoutM12){
+  sankeyRISQ_1 <- rbind(sankeyRISQ_1, c(NA,"M12","Sortie",NA,NA))
+}
+sankeyRISQ_1$code_conf_rec[620:656] <- idPSYSCMR_dropoutM12
+
+sankeyRISQ_1 <- arrange(sankeyRISQ_1,code_conf_rec)
+
+sankeyRISQ_1$phase <- as.factor(sankeyRISQ_1$phase)
+sankeyRISQ_1$hvy1 <- as.factor(sankeyRISQ_1$hvy1)
+sankeyRISQ_1$next_phase <- as.factor(sankeyRISQ_1$next_phase)
+sankeyRISQ_1$next_hvy1 <- as.factor(sankeyRISQ_1$next_hvy1)
+
+sankeyRISQ_1$hvy1 <- factor(sankeyRISQ_1$hvy1, levels = c("Sortie", "0", "1"), labels = c("Sortie","Non","Oui"))
+sankeyRISQ_1$next_phase <- factor(sankeyRISQ_1$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeyRISQ_1$next_hvy1 <- factor(sankeyRISQ_1$next_hvy1, levels = c("Sortie", "0", "1"), labels = c("Sortie","Non","Oui"))
+
+for (i in 1:nrow(sankeyRISQ_1)-1){
+  while(isTRUE(sankeyRISQ_1$code_conf_rec[i] == sankeyRISQ_1$code_conf_rec[i+1])){
+    sankeyRISQ_1$next_phase[i] <- sankeyRISQ_1$phase[i+1]
+    sankeyRISQ_1$next_hvy1[i] <- sankeyRISQ_1$hvy1[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeyRISQ_1$hvy1,sankeyRISQ_1$phase)
+
+sankeyRISQ_1$n <- NA
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,1]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,1]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,1]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,2]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,2]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,2]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,3]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,3]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,3]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,4]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,4]
+sankeyRISQ_1$n[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,4]
+
+tabu <- prop.table(table(sankeyRISQ_1$hvy1,sankeyRISQ_1$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeyRISQ_1$pct <- NA
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,1]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,1]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M0" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,1]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,2]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,2]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M3" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,2]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,3]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,3]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M6" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,3]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Sortie"] <- tabu[1,4]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Non"] <- tabu[2,4]
+sankeyRISQ_1$pct[sankeyRISQ_1$phase == "M12" & sankeyRISQ_1$hvy1 == "Oui"] <- tabu[3,4]
+
+sankey21 <- ggplot(sankeyRISQ_1, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = hvy1, 
+                       next_node = next_hvy1, 
+                       fill = factor(hvy1),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey21 <- sankey21 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey21 <- sankey21 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey21 <- sankey21 + guides(fill = guide_legend(title = "Pratique à risque"))
+sankey21 <- sankey21 + theme_sankey(base_size = 11)
+sankey21 <- sankey21 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey21 <- sankey21 + xlab("Entretien")
+
+sankey21
+
+pdf(file="figure/plot_sankey_risq_cos3psyscmr.pdf")
+sankey21
+dev.off()
+
+list_data_figures[["sankeyRISQ_PSYSCMR"]] <- sankeyRISQ_1
+list_figures[["sankeyRISQ_PSYSCMR"]] <- sankey21
+```
+
+## --- Pratique à risque (cos3PSYSCMR) et qui ont fait les 4 entretiens ---
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeyRISQ_2 <- cos3PSYSCMR %>% dplyr::select(code_conf_rec,phase,hvy1_P)
+sankeyRISQ_2 <- subset(sankeyRISQ_2, sankeyRISQ_2$code_conf_rec %in% list_id[["id4Ent"]])
+
+sankeyRISQ_2 <- rename.variable(sankeyRISQ_2,"hvy1_P","hvy1")
+
+sankeyRISQ_2$next_phase <- NA
+sankeyRISQ_2$next_hvy1 <- NA
+
+sankeyRISQ_2$phase <- as.factor(sankeyRISQ_2$phase)
+sankeyRISQ_2$hvy1 <- as.factor(sankeyRISQ_2$hvy1)
+sankeyRISQ_2$next_phase <- as.factor(sankeyRISQ_2$next_phase)
+sankeyRISQ_2$next_hvy1 <- as.factor(sankeyRISQ_2$next_hvy1)
+
+sankeyRISQ_2$hvy1 <- factor(sankeyRISQ_2$hvy1, levels = c("0", "1"), labels = c("Non","Oui"))
+sankeyRISQ_2$next_phase <- factor(sankeyRISQ_2$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeyRISQ_2$next_hvy1 <- factor(sankeyRISQ_2$next_hvy1, levels = c("0", "1"), labels = c("Non","Oui"))
+
+for (i in 1:nrow(sankeyRISQ_2)-1){
+  while(isTRUE(sankeyRISQ_2$code_conf_rec[i] == sankeyRISQ_2$code_conf_rec[i+1])){
+    sankeyRISQ_2$next_phase[i] <- sankeyRISQ_2$phase[i+1]
+    sankeyRISQ_2$next_hvy1[i] <- sankeyRISQ_2$hvy1[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeyRISQ_2$hvy1,sankeyRISQ_2$phase)
+
+sankeyRISQ_2$n <- NA
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M0" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,1]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M0" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,1]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M3" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,2]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M3" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,2]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M6" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,3]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M6" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,3]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M12" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,4]
+sankeyRISQ_2$n[sankeyRISQ_2$phase == "M12" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,4]
+
+tabu <- prop.table(table(sankeyRISQ_2$hvy1,sankeyRISQ_2$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeyRISQ_2$pct <- NA
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M0" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,1]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M0" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,1]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M3" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,2]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M3" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,2]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M6" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,3]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M6" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,3]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M12" & sankeyRISQ_2$hvy1 == "Non"] <- tabu[1,4]
+sankeyRISQ_2$pct[sankeyRISQ_2$phase == "M12" & sankeyRISQ_2$hvy1 == "Oui"] <- tabu[2,4]
+
+sankey22 <- ggplot(sankeyRISQ_2, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = hvy1, 
+                       next_node = next_hvy1, 
+                       fill = factor(hvy1),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey22 <- sankey22 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey22 <- sankey22 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey22 <- sankey22 + guides(fill = guide_legend(title = "Pratique à risque"))
+sankey22 <- sankey22 + theme_sankey(base_size = 11)
+sankey22 <- sankey22 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey22 <- sankey22 + xlab("Entretien")
+
+sankey22
+
+pdf(file="figure/plot_sankey_risq_cos3psyscmr_4Ent.pdf")
+sankey22
+dev.off()
+
+list_data_figures[["sankeyRISQ_PSYSCMR4Ent"]] <- sankeyRISQ_2
+list_figures[["sankeyRISQ_PSYSCMR4Ent"]] <- sankey22
+```
+
+## --- Nombre de pratiques à risques (cos3PSY) --- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeyNBRISQ <- cos3PSY %>% dplyr::select(code_conf_rec,phase,hvy2_P)
+
+sankeyNBRISQ <- rename.variable(sankeyNBRISQ,"hvy2_P","hvy2")
+
+idPSYSCMR_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSY"]])
+
+sankeyNBRISQ$next_phase <- NA
+sankeyNBRISQ$next_hvy2 <- NA
+
+for (i in idPSYSCMR_dropoutM12){
+  sankeyNBRISQ <- rbind(sankeyNBRISQ, c(NA,"M12","Sortie",NA,NA))
+}
+sankeyNBRISQ$code_conf_rec[1273:1336] <- idPSYSCMR_dropoutM12
+
+sankeyNBRISQ <- arrange(sankeyNBRISQ,code_conf_rec)
+
+sankeyNBRISQ$phase <- as.factor(sankeyNBRISQ$phase)
+sankeyNBRISQ$hvy2 <- as.factor(sankeyNBRISQ$hvy2)
+sankeyNBRISQ$next_phase <- as.factor(sankeyNBRISQ$next_phase)
+sankeyNBRISQ$next_hvy2 <- as.factor(sankeyNBRISQ$next_hvy2)
+
+sankeyNBRISQ$hvy2 <- factor(sankeyNBRISQ$hvy2, levels = c("Sortie", "0", "1", "2", "3"))
+sankeyNBRISQ$next_phase <- factor(sankeyNBRISQ$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeyNBRISQ$next_hvy2 <- factor(sankeyNBRISQ$next_hvy2, levels = c("Sortie", "0", "1", "2", "3"))
+
+for (i in 1:nrow(sankeyNBRISQ)-1){
+  while(isTRUE(sankeyNBRISQ$code_conf_rec[i] == sankeyNBRISQ$code_conf_rec[i+1])){
+    sankeyNBRISQ$next_phase[i] <- as.character(sankeyNBRISQ$phase[i+1])
+    sankeyNBRISQ$next_hvy2[i] <- sankeyNBRISQ$hvy2[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeyNBRISQ$hvy2,sankeyNBRISQ$phase)
+
+sankeyNBRISQ$n <- NA
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,1]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,1]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,1]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,1]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,1]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,2]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,2]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,2]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,2]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,2]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,3]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,3]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,3]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,3]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,3]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,4]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,4]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,4]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,4]
+sankeyNBRISQ$n[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,4]
+
+tabu <- prop.table(table(sankeyNBRISQ$hvy2,sankeyNBRISQ$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeyNBRISQ$pct <- NA
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,1]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,1]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,1]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,1]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M0" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,1]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,2]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,2]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,2]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,2]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M3" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,2]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,3]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,3]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,3]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,3]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M6" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,3]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "Sortie"] <- tabu[1,4]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "0"] <- tabu[2,4]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "1"] <- tabu[3,4]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "2"] <- tabu[4,4]
+sankeyNBRISQ$pct[sankeyNBRISQ$phase == "M12" & sankeyNBRISQ$hvy2 == "3"] <- tabu[5,4]
+
+sankey3 <- ggplot(sankeyNBRISQ, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = hvy2, 
+                       next_node = next_hvy2, 
+                       fill = factor(hvy2),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey3 <- sankey3 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey3 <- sankey3 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey3 <- sankey3 + guides(fill = guide_legend(title = "Nombre de pratiques à risque"))
+sankey3 <- sankey3 + theme_sankey(base_size = 11)
+sankey3 <- sankey3 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey3 <- sankey3 + xlab("Entretien")
+
+sankey3
+
+pdf(file="figure/plot_sankey_nbrisq_cos3psy.pdf")
+sankey3
+dev.off()
+
+list_data_figures[["sankeyNBRISQ_PSY"]] <- sankeyNBRISQ
+list_figures[["sankeyNBRISQ_PSY"]] <- sankey3
+```
+
+## --- Nombre de pratiques à risques pour ceux avec au moins 1 freq SCMR (cos3PSYSCMR) --- 
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+sankeyNBRISQ_1 <- cos3PSYSCMR %>% dplyr::select(code_conf_rec,phase,hvy2_P)
+
+sankeyNBRISQ_1 <- rename.variable(sankeyNBRISQ_1,"hvy2_P","hvy2")
+
+idPSYSCMR_dropoutM12 <- intersect(list_id[["id3EntPasM12"]],list_id[["idPSYSCMR"]])
+
+sankeyNBRISQ_1$next_phase <- NA
+sankeyNBRISQ_1$next_hvy2 <- NA
+
+for (i in idPSYSCMR_dropoutM12){
+  sankeyNBRISQ_1 <- rbind(sankeyNBRISQ_1, c(NA,"M12","Sortie",NA,NA))
+}
+sankeyNBRISQ_1$code_conf_rec[620:656] <- idPSYSCMR_dropoutM12
+
+sankeyNBRISQ_1 <- arrange(sankeyNBRISQ_1,code_conf_rec)
+
+sankeyNBRISQ_1$phase <- as.factor(sankeyNBRISQ_1$phase)
+sankeyNBRISQ_1$hvy2 <- as.factor(sankeyNBRISQ_1$hvy2)
+sankeyNBRISQ_1$next_phase <- as.factor(sankeyNBRISQ_1$next_phase)
+sankeyNBRISQ_1$next_hvy2 <- as.factor(sankeyNBRISQ_1$next_hvy2)
+
+sankeyNBRISQ_1$hvy2 <- factor(sankeyNBRISQ_1$hvy2, levels = c("Sortie", "0", "1", "2", "3"))
+sankeyNBRISQ_1$next_phase <- factor(sankeyNBRISQ_1$next_phase, levels = c("M0", "M3", "M6", "M12"))
+sankeyNBRISQ_1$next_hvy2 <- factor(sankeyNBRISQ_1$next_hvy2, levels = c("Sortie", "0", "1", "2", "3"))
+
+for (i in 1:nrow(sankeyNBRISQ_1)-1){
+  while(isTRUE(sankeyNBRISQ_1$code_conf_rec[i] == sankeyNBRISQ_1$code_conf_rec[i+1])){
+    sankeyNBRISQ_1$next_phase[i] <- as.character(sankeyNBRISQ_1$phase[i+1])
+    sankeyNBRISQ_1$next_hvy2[i] <- sankeyNBRISQ_1$hvy2[i+1]
+    i <- i+1
+  }
+}
+
+tabu <- table(sankeyNBRISQ_1$hvy2,sankeyNBRISQ_1$phase)
+
+sankeyNBRISQ_1$n <- NA
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,1]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,1]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,1]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,1]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,1]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,2]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,2]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,2]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,2]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,2]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,3]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,3]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,3]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,3]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,3]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,4]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,4]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,4]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,4]
+sankeyNBRISQ_1$n[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,4]
+
+tabu <- prop.table(table(sankeyNBRISQ_1$hvy2,sankeyNBRISQ_1$phase), margin = 2)*100
+tabu <- round(tabu, digits = 2)
+
+sankeyNBRISQ_1$pct <- NA
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,1]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,1]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,1]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,1]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M0" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,1]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,2]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,2]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,2]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,2]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M3" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,2]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,3]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,3]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,3]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,3]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M6" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,3]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "Sortie"] <- tabu[1,4]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "0"] <- tabu[2,4]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "1"] <- tabu[3,4]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "2"] <- tabu[4,4]
+sankeyNBRISQ_1$pct[sankeyNBRISQ_1$phase == "M12" & sankeyNBRISQ_1$hvy2 == "3"] <- tabu[5,4]
+
+sankey31 <- ggplot(sankeyNBRISQ_1, 
+                  aes (x = phase, 
+                       next_x = next_phase, 
+                       node = hvy2, 
+                       next_node = next_hvy2, 
+                       fill = factor(hvy2),
+                       label = paste0("n=", n, ' (',  pct, ' %)' )))
+sankey31 <- sankey31 + geom_sankey(flow.alpha = 0.25, node.color = 1, show.legend = TRUE)
+
+sankey31 <- sankey31 + geom_sankey_label(size = 2.2, color = "black", fill= "white", hjust = 0.5, alpha = 0.7)
+sankey31 <- sankey31 + guides(fill = guide_legend(title = "Nombre de pratiques à risque"))
+sankey31 <- sankey31 + theme_sankey(base_size = 11)
+sankey31 <- sankey31 + scale_fill_viridis_d(option = "D", alpha = 0.25)
+sankey31 <- sankey31 + xlab("Entretien")
+
+sankey31
+
+pdf(file="figure/plot_sankey_nbrisq_cos3psyscmr.pdf")
+sankey31
+dev.off()
+
+list_data_figures[["sankeyNBRISQ_PSYSCMR"]] <- sankeyNBRISQ_1
+list_figures[["sankeyNBRISQ_PSYSCMR"]] <- sankey31
+```
+
+# Choix des objets à garder
+```{r}
+keep_var <- c("list_data_figures","list_figures","palette_psy_v222","palette_psy_v342")
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+suppr <- ls()
+suppr <- suppr[! suppr %in% keep_var]
+rm(list = suppr)
+rm(suppr)
+save.image(as.character(paste(getwd(),"COS_ENV_FIGURES.RData", sep = "/")))
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```

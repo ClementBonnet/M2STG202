@@ -1,0 +1,1937 @@
+---
+title: "Analyses - Associations"
+author: "Clément Bonnet"
+date: "21/02/2022 - 29/07/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+# dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# ============ CODE R STAGE M2 BIOSTATISTIQUES ============ #
+# ===================== Clément Bonnet ==================== #
+# ========================================================= #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ======= Emplacement de travail ======= #
+setwd("C:/Users/cleme/Documents/stage")
+# setwd("~/stage")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Chargement des librairies === #
+
+library(AER)
+library(devtools)
+library(remotes)
+
+# devtools::install_github("mattflor/chorddiag")
+# remotes::install_github("davidsjoberg/ggsankey")
+
+library(aod) # pour le test de Wald
+library(berryFunctions) # pour le is.error
+library(broom.mixed) # pour tbl_regression.lmerMod
+library(car) # pour vif (multicollinéarité modèle de régression)
+library(chorddiag) # pour les diagrammes en corde
+library(DHARMa)
+library(dplyr) #
+library(epiDisplay) #
+library(epiR) #
+library(finalfit) # pour les forest plot des OR/AOR/RR
+library(gtsummary)
+library(epitools)
+library(ggplot2) # pour les graphiques
+library(ggsankey) # pour les diagrammes de Sankey
+library(haven) # pour importer des données de fichiers Stata ou SAS
+library(Hmisc) # pour la description de variables
+library(lcmm) # pour modèles mixtes ordinaux
+library(lme4) # pour les modèles mixtes généralisés
+# library(MASS)
+library(magrittr) # pour les diagrammes en corde
+library(mfp) # pour les polynômes fractionnaires
+library(mirt)
+library(ordinal) # pour les fonctions clm et clmm
+library(pastecs) # pour la description de variables
+library(performance)
+library(psycho) # pour utiliser la fonction analyse.glmerMod
+# library(rcom) #
+# library(rJava) #
+library(sampleSelection) # pour faire la méthode d'Heckman pour le biais de sélection
+library(sjPlot)
+library(tidyverse) #
+library(VGAM) # pour la fonction vglm
+# library(xlsx) #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+load(as.character(paste(getwd(),"COS_ENV_CORE.RData", sep = "/")))
+```
+
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+get_subdata3PSY <- function(scmr = FALSE, kelvar = 0, M6 = FALSE){
+  data <- data3PSY
+  if(scmr){
+    data <- subset(data, data$code_conf_rec %in% list_id[["idPSYSCMR"]])
+  }
+  if(kelvar == 0){
+    data <- data %>% dplyr::select(all_of(list_var_P))
+  }
+  else{
+    if (kelvar == 1){
+      data <- data %>% dplyr::select(all_of(list_var_S))
+    }
+    else{
+      data <- data %>% dplyr::select(all_of(list_var_NA))
+    }
+  }
+  if(M6){
+    data <- subset(data, data$phase == "M6")
+  }
+  return(data)
+}
+
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Fonctions === #
+
+# ___ Récupérer OR/RR + IC + p.valeur __ #
+# __ Modèle logistique __ #
+ORandIC_Log <- function (RegLog){
+  OR <- exp(coef(RegLog))
+  IC <- exp(confint(RegLog))
+  p_value <- summary(RegLog)$coef[,4]
+  round(cbind(OR,IC,p_value),4)
+}
+
+# __ Modèle logistique mixte __ #
+ORandIC_MixLog <- function (RegMixLog){
+  res <- summary(RegMixLog)
+  OR <- exp(res[["coefficients"]][,1])
+  IC_inf <- exp(res[["coefficients"]][,1] - 1.96*res[["coefficients"]][,2])
+  IC_sup <- exp(res[["coefficients"]][,1] + 1.96*res[["coefficients"]][,2])
+  p_value <- res[["coefficients"]][,4]
+  round(cbind(OR,IC_inf,IC_sup,p_value),4)
+}
+
+# __ Modèle de Poisson __ #
+RRandIC_Pois <- function (RegPois){
+  RR <- exp(coef(RegPois))
+  IC <- exp(confint(RegPois))
+  p_value <- summary(RegPois)$coef[,4]
+  round(cbind(RR,IC,p_value),4)
+}
+
+# __ Modèle de Poisson mixte __ #
+RRandIC_MixPois <- function (RegMixPois){
+  res <- summary(RegMixPois)
+  RR <- exp(res[["coefficients"]][,1])
+  IC_inf <- exp(res[["coefficients"]][,1] - 1.96*res[["coefficients"]][,2])
+  IC_sup <- exp(res[["coefficients"]][,1] + 1.96*res[["coefficients"]][,2])
+  p_value <- res[["coefficients"]][,4]
+  round(cbind(RR,IC_inf,IC_sup,p_value),4)
+}
+
+# __ Modèle ordinal __ #
+ORandIC_Ord <- function (RegOrd){
+  OR <- exp(RegOrd@coefficients)
+  IC <- exp(confint(RegOrd))
+  p_value <- summary(RegOrd)@coef3[,4]
+  round(cbind(OR,IC,p_value),4)
+}
+
+# __ Modèle ordinal mixte __ #
+ORandIC_MixOrd <- function (RegMixOrd){
+  res <- summary(RegMixOrd)
+  OR <- exp(-(res[["coefficients"]][,1]))
+  IC_sup <- exp(-(res[["coefficients"]][,1] - 1.96*res[["coefficients"]][,2]))
+  IC_inf <- exp(-(res[["coefficients"]][,1] + 1.96*res[["coefficients"]][,2]))
+  p_value <- res[["coefficients"]][,4]
+  OR[1:2] <- (exp(res[["coefficients"]][1:2,1]))
+  IC_inf[1:2] <- exp(res[["coefficients"]][1:2,1] - 1.96*res[["coefficients"]][1:2,2])
+  IC_sup[1:2] <- exp(res[["coefficients"]][1:2,1] + 1.96*res[["coefficients"]][1:2,2]) 
+  round(cbind(OR,IC_inf,IC_sup,p_value),4)
+}
+
+
+# ___ Tests ___ #
+# -- Hosmer-Lemeshow -- #
+Hosmer.Lemeshow.test<-function(y, yhat, g=10) {
+  groupe <- cut(yhat,breaks=quantile(yhat, probs=seq(0,1,1/g)),include.lowest=TRUE)
+  obs <- xtabs(cbind(1 - y, y) ~ groupe)
+  expect<-xtabs(cbind(1 - yhat, yhat) ~ groupe)
+  colnames(obs)<-c("0","1")
+  colnames(expect)<-c("0","1")
+  chisq<-sum((obs - expect)^2/expect)
+  P<-1 - pchisq(chisq, g - 2)
+  table<-cbind(obs,expect)
+  return(list(chisq=chisq,p.value=P,table_Obs_Pred=table))
+}
+
+HL.test = function(obj, g) {
+  # first, check to see if we fed in the right kind of object
+  stopifnot(family(obj)$family == "binomial" && family(obj)$link == "logit")
+  y = obj$model[[1]]
+  trials = rep(1, times = nrow(obj$model))
+  if(any(colnames(obj$model) == "(weights)")) 
+  trials <- obj$model[[ncol(obj$model)]]
+  # the double bracket (above) gets the index of items within an object
+  if (is.factor(y)) 
+  y = as.numeric(y) == 2  # Converts 1-2 factor levels to logical 0/1 values
+  yhat = obj$fitted.values 
+  interval = cut(yhat, quantile(yhat, 0:g/g), include.lowest = TRUE)  # Creates factor with levels 1,2,...,g
+  Y1 <- trials*y
+  Y0 <- trials - Y1
+  Y1hat <- trials*yhat
+  Y0hat <- trials - Y1hat
+  obs = xtabs(formula = cbind(Y0, Y1) ~ interval)
+  expect = xtabs(formula = cbind(Y0hat, Y1hat) ~ interval)
+  if (any(expect < 5))
+  warning("Some expected counts are less than 5. Use smaller number of groups")
+  pear <- (obs - expect)/sqrt(expect)
+  chisq = sum(pear^2)
+  P = 1 - pchisq(chisq, g - 2)
+  # by returning an object of class "htest", the function will perform like the 
+  # built-in hypothesis tests
+  return(structure(list(
+  method = c(paste("Hosmer and Lemeshow goodness-of-fit test with", g, "bins", sep = " ")),
+  data.name = deparse(substitute(obj)),
+  statistic = c(X2 = chisq),
+  parameter = c(df = g-2),
+  p.value = P,
+  pear.resid = pear,
+  expect = expect,
+  observed = obs
+  ), class = 'htest'))
+}
+
+# -- Osius-Rojek -- #
+o.r.test = function(obj) {
+  # first, check to see if we fed in the right kind of object
+  stopifnot(family(obj)$family == "binomial" && family(obj)$link == "logit")
+  mf <- obj$model
+  trials = rep(1, times = nrow(mf))
+  if(any(colnames(mf) == "(weights)")) 
+  trials <- mf[[ncol(mf)]]
+  prop = mf[[1]]
+  # the double bracket (above) gets the index of items within an object
+  if (is.factor(prop)) 
+  prop = as.numeric(prop) == 2  # Converts 1-2 factor levels to logical 0/1 values
+  pi.hat = obj$fitted.values 
+  y <- trials*prop
+  yhat <- trials*pi.hat
+  nu <- yhat*(1-pi.hat)
+  pearson <- sum((y - yhat)^2/nu)
+  c = (1 - 2*pi.hat)/nu
+  exclude <- c(1,which(colnames(mf) == "(weights)"))
+  vars <- data.frame(c,mf[,-exclude]) 
+  wlr <- lm(formula = c ~ ., weights = nu, data = vars)
+  rss <- sum(nu*residuals(wlr)^2 )
+  J <- nrow(mf)
+  A <- 2*(J - sum(1/trials))
+  z <- (pearson - (J - ncol(vars) - 1))/sqrt(A + rss)
+  p.value <- 2*(1 - pnorm(abs(z)))
+  cat("z = ", z, "with p-value = ", p.value, "\n")
+}
+
+# -- Stukel -- #
+stukel.test = function(obj) {
+  # first, check to see if we fed in the right kind of object
+  stopifnot(family(obj)$family == "binomial" && family(obj)$link == "logit")
+  high.prob <- (obj$fitted.values >= 0.5) 
+  logit2 <- obj$linear.predictors^2
+  z1 = 0.5*logit2*high.prob
+  z2 = 0.5*logit2*(1-high.prob)
+  mf <- obj$model
+  trials = rep(1, times = nrow(mf))
+  if(any(colnames(mf) == "(weights)")) 
+  trials <- mf[[ncol(mf)]]
+  prop = mf[[1]]
+  # the double bracket (above) gets the index of items within an object
+  if (is.factor(prop)) 
+  prop = (as.numeric(prop) == 2)  # Converts 1-2 factor levels to logical 0/1 values
+  pi.hat = obj$fitted.values 
+  y <- trials*prop
+  exclude <- which(colnames(mf) == "(weights)")
+  vars <- data.frame(z1, z2, y, mf[,-c(1,exclude)])
+  full <- glm(formula = y/trials ~ ., family = binomial(link = logit), weights = trials, data = vars)
+  null <- glm(formula = y/trials ~ ., family = binomial(link = logit), weights = trials, data = vars[,-c(1,2)])
+  LRT <- anova(null,full)
+  p.value <- 1 - pchisq(LRT$Deviance[[2]], LRT$Df[[2]])
+  cat("Stukel Test Stat = ", LRT$Deviance[[2]], "with p-value = ", p.value, "\n")
+}
+
+# ___ Plot __ #
+plot_ROC<-function(y,phat){
+  D <- table(-phat,y)
+  sens<-c(0,cumsum(D[,2])/sum(D[,2]),1)
+  mspec<-c(0,cumsum(D[,1])/sum(D[,1]),1)
+  plot(mspec,sens,type="l",xlab="Faux Positifs (1-Sp)", ylab="Vrais Positifs (Se)",lwd=2,col="red",cex.lab=1.2)
+  abline(0,1,lty=2)
+  AUC<-sum((sens[-1]+sens[-length(sens)])*(mspec[-1]-mspec[-length(mspec)])/2)
+  text(0.8,0.2,paste("AUC=",round(AUC,3)),cex=1.2)
+}
+
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+list_models <- list()
+list_results <- list()
+list_adequation <- list()
+list_irt <- list()
+list_dimensions <- list()
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ___ Choix du type d'analyse ___ #
+type.analyse <- "P"
+list_var <- list_var_P
+
+# type.analyse <- "S"
+# list_var <- list_var_S
+
+# type.analyse <- "NA"
+# list_var <- list_var_NA
+
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ========================================================= #
+# =============== RUN ALL CHUNKS ABOVE HERE =============== #
+# ========================================================= #
+```
+
+
+# Corrélation anxiété et TSPT/TDAH
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# __ Corrélation des psychopathologies (en classes) __ #
+PSYCHOresume <- list_data[["PSYCHOresume"]]
+PSYCHOresume_SCMR <- list_data[["PSYCHOresume_SCMR"]]
+PSYCHOresume_noSCMR <- list_data[["PSYCHOresume_noSCMR"]]
+
+cor(na.omit(PSYCHOresume[,c(3,6,7)]))
+cor(na.omit(PSYCHOresume_SCMR[,c(3,6,7)]))
+cor(na.omit(PSYCHOresume_noSCMR[,c(3,6,7)]))
+
+  # __ Corrélation des psychopathologies (en score) __ #
+cor(na.omit(PSYCHOresume[,8:10]))
+cor(na.omit(PSYCHOresume_SCMR[,8:10]))
+cor(na.omit(PSYCHOresume_noSCMR[,8:10]))
+
+rm(PSYCHOresume,PSYCHOresume_SCMR,PSYCHOresume_noSCMR)
+```
+
+
+# ANALYSES D'ASSOCIATION
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Noms des modèles de régression :
+#
+# forme canonique : reg(Mix)famX_varY_ECH_TYPE(_varX)
+#
+# (remplacer reg par heck si utilisation de la méthode d'Heckman)
+# où Mix est présent si régression mixte sinon aucun caractère
+# où famX correspond à la famille de modèle de régression (Lin (linéaire), Log (logistique), Ord (ordinal), Pois (poisson))
+# où varY est le nom de code de la variable à expliquer
+# où ECH est le nom de code de l'échantillon des analyses
+# où _TYPE est un ajout facultatif pour préciser le type de modèle au sein de la famille :
+#   pour les régressions ordinales :
+#     CP : cotes proportionnelles
+#     LC : logit cumulé
+#     CA : cotes adjacentes
+#     PCP : partiel à cotes proportionnelles
+#   pour les régressions de Poisson :
+#     QP : quasi-poisson
+#     BN : binomial négatif
+# où varX est le nom de la seule variable explicative pour les analyses univariées
+```
+
+
+## ANALYSES TRANSVERSALES SUR ANX, TSPT, TDAH, SCMR, RISQ et NBRISQ
+
+### Régression logistique : VAR -> ANX (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","anx_4cat_P","anx_3cat_P","anx_score")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("anx_2cat_",type.analyse, sep = ""))]
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regLog_ANX_PSY_Uni <- list()
+for (i in allUniVar){
+  modLog <- glm(as.formula(paste("anx_2cat_",type.analyse," ~ ",i,sep = "")),
+                family = binomial(link = "logit"),
+                data = get_subdata3PSY(M6 = TRUE))
+  res <- summary(modLog)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodLog <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodLog <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodLog <- c("inf" = coefmodLog - 1.96*sdmodLog,
+                "sup" = coefmodLog + 1.96*sdmodLog)
+  pvalmodLog <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow(res[["coefficients"]]) > 2){
+    modLog0 <- glm(as.formula(paste("anx_2cat_",type.analyse," ~ 1",sep = "")),
+                   family = binomial(link = "logit"), data = modLog$model)
+    pvalglobalemodLog <- (1-pchisq(q = modLog0$deviance - modLog$deviance,
+                                   df = modLog0$df.residual - modLog$df.residual))
+    regLog_ANX_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                 "sd" = sdmodLog,
+                                 "IC" = exp(ICmodLog),
+                                 "pval" = pvalmodLog,
+                                 "pval.globale" = pvalglobalemodLog,
+                                 "convergence" = modLog[["converged"]])
+  }
+  else{
+    regLog_ANX_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                 "sd" = sdmodLog,
+                                 "IC" = exp(ICmodLog),
+                                 "pval" = pvalmodLog,
+                                 "convergence" = modLog[["converged"]])
+  }
+}
+rm(modLog,modLog0,nrow.res,res,coefmodLog,pvalmodLog,pvalglobalemodLog,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+selVar_regLog_ANX_PSY <- c("gender","age","tspt_2cat_P","tdah_2cat_P","hvy2_P","cocaine_quot_P","crack_quot","aidealimentaire","tentative_suic_P")
+
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regLog_ANX_PSY <- append(selVar_regLog_ANX_PSY,c("code_conf_rec","phase","anx_2cat_P"),0)
+# __ Découpage lignes __ #
+dataLog_ANX_PSY  <- get_subdata3PSY(M6 = TRUE) %>% dplyr::select(all_of(selVar_regLog_ANX_PSY))
+dataLog_ANX_PSY <- na.omit(dataLog_ANX_PSY)
+# __ Cas sous-échantillon d'étude __ #
+# dataLog_ANX_PSY <- filter(dataLog_ANX_PSY,dataLog_ANX_PSY$code_conf_rec %in% list_id[["idSCMR"]])
+
+# ___ Modèle complet ___ #
+regLog_ANX_PSY <- glm(anx_2cat_P ~ gender + age + tspt_2cat_P + tdah_2cat_P + hvy2_P + cocaine_quot_P + crack_quot + aidealimentaire + tentative_suic_P,
+                      family = binomial(link = "logit"),
+                      data = dataLog_ANX_PSY)
+summary(regLog_ANX_PSY)
+AIC(regLog_ANX_PSY)
+
+# ___ Méthode descendante ___ #
+a <- drop1(regLog_ANX_PSY)
+
+regLog_ANX_PSY_F <- glm(anx_2cat_P ~ gender + age + tspt_2cat_P + tdah_2cat_P + hvy2_P + cocaine_quot_P + crack_quot + aidealimentaire + tentative_suic_P,
+                        family = binomial(link = "logit"),
+                        data = dataLog_ANX_PSY)
+summary(regLog_ANX_PSY_F)
+AIC(regLog_ANX_PSY_F)
+a <- drop1(regLog_ANX_PSY_F)
+
+rm(a)
+
+anova(regLog_ANX_PSY,regLog_ANX_PSY_F, test = "Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["ANX_chezPSY_Uni"]] <- regLog_ANX_PSY_Uni
+list_models[["ANX_chezPSY_M.Complet"]] <- regLog_ANX_PSY
+list_models[["ANX_chezPSY_M.Final"]] <- regLog_ANX_PSY_F
+list_results[["ANX_chezPSY_summary_M.Complet"]] <- summary(list_models[["ANX_chezPSY_M.Complet"]])
+list_results[["ANX_chezPSY_summary_M.Final"]] <- summary(list_models[["ANX_chezPSY_M.Final"]])
+
+list_results[["ANX_chezPSY_OR+IC_M.Complet"]] <- ORandIC_Log(regLog_ANX_PSY)
+list_results[["ANX_chezPSY_OR+IC_M.Final"]] <- ORandIC_Log(regLog_ANX_PSY_F)
+
+# Pour obtenir les p-valeurs brutes (univariées) de chacunes des variables
+logistic.display(regLog_ANX_PSY)
+logistic.display(regLog_ANX_PSY_F)
+
+# ================= Adéquation/discrimination du modèle choisi ================= #
+
+# ___ Test de Hosmer-Lemeshow ___ #
+Hosmer.Lemeshow.test(y = regLog_ANX_PSY$y, yhat = regLog_ANX_PSY$fitted.values)
+# Si p.value > 0.05 on ne rejette pas H0 = "Modèle adéquat" => Modèle adéquat
+# Si p.value < 0.05 on rejette H0 = "Modèle adéquat" => Modèle non adéquat
+list_adequation[["ANX_chezPSY_M.Final_Test_Hosmer-Lemeshow"]] <- Hosmer.Lemeshow.test(y = regLog_ANX_PSY$y, yhat = regLog_ANX_PSY$fitted.values)
+
+HL.test(regLog_ANX_PSY, g = 10)
+o.r.test(regLog_ANX_PSY)
+stukel.test(regLog_ANX_PSY)
+
+# ___ Qualité discriminante du modèle ___ #
+plot_ROC(y = regLog_ANX_PSY$y, phat = regLog_ANX_PSY$fitted.values)
+pdf(file="figure/plot_regLog_ANX_chezPSY_adequation_ROC.pdf")
+plot_ROC(y = regLog_ANX_PSY$y, phat = regLog_ANX_PSY$fitted.values)
+dev.off()
+
+```
+
+### Régression logistique : VAR -> TSPT (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","tspt_3cat_P","tspt_score")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("tspt_2cat_",type.analyse, sep = ""))]
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regLog_TSPT_PSY_Uni <- list()
+for (i in allUniVar){
+  modLog <- glm(as.formula(paste("tspt_2cat_",type.analyse," ~ ",i,sep = "")),
+                family = binomial(link = "logit"),
+                data = get_subdata3PSY(M6 = TRUE))
+  res <- summary(modLog)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodLog <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodLog <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodLog <- c("inf" = coefmodLog - 1.96*sdmodLog,
+                "sup" = coefmodLog + 1.96*sdmodLog)
+  pvalmodLog <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow(res[["coefficients"]]) > 2){
+    modLog0 <- glm(as.formula(paste("tspt_2cat_",type.analyse," ~ 1",sep = "")),
+                   family = binomial(link = "logit"), data = modLog$model)
+    pvalglobalemodLog <- (1-pchisq(q = modLog0$deviance - modLog$deviance, df = modLog0$df.residual - modLog$df.residual))
+    regLog_TSPT_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "pval.globale" = pvalglobalemodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+  else{
+    regLog_TSPT_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+}
+rm(modLog,modLog0,nrow.res,res,coefmodLog,pvalmodLog,pvalglobalemodLog,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+selVar_regLog_TSPT_PSY <- c("gender","age","lieu","ville","anx_2cat_P","tdah_2cat_P","scmry3_P","hvy1_P","cocaine_quot_P","crack_quot","cannabis10j_P","morphine_quot_hpresc_P","nbproduitsdif","couvsociale_P","tentative_suic_P")
+
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regLog_TSPT_PSY <- append(selVar_regLog_TSPT_PSY,c("code_conf_rec","phase","tspt_2cat_P"),0)
+# __ Découpage lignes __ #
+dataLog_TSPT_PSY  <- get_subdata3PSY(M6 = TRUE) %>% dplyr::select(all_of(selVar_regLog_TSPT_PSY))
+dataLog_TSPT_PSY <- na.omit(dataLog_TSPT_PSY)
+# __ Cas sous-échantillon d'étude __ #
+# dataLog_TSPT_PSY <- filter(dataLog_TSPT_PSY,dataLog_TSPT_PSY$code_conf_rec %in% list_id[["idSCMR"]])
+
+# ___ Modèle complet ___ #
+regLog_TSPT_PSY <- glm(tspt_2cat_P ~ gender + age + lieu + ville + anx_2cat_P + tdah_2cat_P + scmry3_P + hvy1_P + cocaine_quot_P + crack_quot + cannabis10j_P + morphine_quot_hpresc_P + nbproduitsdif + couvsociale_P + tentative_suic_P,
+                      family = binomial(link = "logit"),
+                      data = dataLog_TSPT_PSY)
+summary(regLog_TSPT_PSY)
+AIC(regLog_TSPT_PSY)
+
+# ___ Méthode descendante ___ #
+a <- drop1(regLog_TSPT_PSY)
+
+regLog_TSPT_PSY_F <- glm(tspt_2cat_P ~ gender + age + ville + anx_2cat_P + tdah_2cat_P + scmry3_P + hvy1_P + cannabis10j_P + couvsociale_P + tentative_suic_P,
+                        family = binomial(link = "logit"),
+                        data = dataLog_TSPT_PSY)
+summary(regLog_TSPT_PSY_F)
+AIC(regLog_TSPT_PSY_F)
+a <- drop1(regLog_TSPT_PSY_F)
+
+rm(a)
+
+anova(regLog_TSPT_PSY,regLog_TSPT_PSY_F, test = "Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["TSPT_chezPSY_Uni"]] <- regLog_TSPT_PSY_Uni
+list_models[["TSPT_chezPSY_M.Complet"]] <- regLog_TSPT_PSY
+list_models[["TSPT_chezPSY_M.Final"]] <- regLog_TSPT_PSY_F
+list_results[["TSPT_chezPSY_summary_M.Complet"]] <- summary(list_models[["TSPT_chezPSY_M.Complet"]])
+list_results[["TSPT_chezPSY_summary_M.Final"]] <- summary(list_models[["TSPT_chezPSY_M.Final"]])
+
+list_results[["TSPT_chezPSY_OR+IC_M.Complet"]] <- ORandIC_Log(regLog_TSPT_PSY)
+list_results[["TSPT_chezPSY_OR+IC_M.Final"]] <- ORandIC_Log(regLog_TSPT_PSY_F)
+
+# Pour obtenir les p-valeurs brutes (univariées) de chacunes des variables
+logistic.display(regLog_TSPT_PSY)
+logistic.display(regLog_TSPT_PSY_F)
+# Pour créer le tableau résumé du modèle
+# tbl_regression(regLog_TSPT_PSY_F, exponentiate = TRUE)
+
+
+# ================= Adéquation/discrimination du modèle choisi ================= #
+
+# ___ Test de Hosmer-Lemeshow ___ #
+Hosmer.Lemeshow.test(y = regLog_TSPT_PSY$y, yhat = regLog_TSPT_PSY$fitted.values)
+# Si p.value > 0.05 on ne rejette pas H0 = "Modèle adéquat" => Modèle adéquat
+# Si p.value < 0.05 on rejette H0 = "Modèle adéquat" => Modèle non adéquat
+list_adequation[["TSPT_chezPSY_M.Final_Test_Hosmer-Lemeshow"]] <- Hosmer.Lemeshow.test(y = regLog_TSPT_PSY$y, yhat = regLog_TSPT_PSY$fitted.values)
+
+HL.test(regLog_TSPT_PSY, g = 10)
+o.r.test(regLog_TSPT_PSY)
+stukel.test(regLog_TSPT_PSY)
+
+# ___ Qualité discriminante du modèle ___ #
+plot_ROC(y = regLog_TSPT_PSY$y, phat = regLog_TSPT_PSY$fitted.values)
+pdf(file="figure/plot_regLog_TSPT_chezPSY_adequation_ROC.pdf")
+plot_ROC(y = regLog_TSPT_PSY$y, phat = regLog_TSPT_PSY$fitted.values)
+dev.off()
+
+```
+
+### Régression logistique : VAR -> TDAH (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","tdah_score")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("tdah_2cat_",type.analyse, sep = ""))]
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regLog_TDAH_PSY_Uni <- list()
+for (i in allUniVar){
+  modLog <- glm(as.formula(paste("tdah_2cat_",type.analyse," ~ ",i,sep = "")),
+                family = binomial(link = "logit"),
+                data = get_subdata3PSY(M6 = TRUE))
+  res <- summary(modLog)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodLog <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodLog <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodLog <- c("inf" = coefmodLog - 1.96*sdmodLog,
+                "sup" = coefmodLog + 1.96*sdmodLog)
+  pvalmodLog <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow(res[["coefficients"]]) > 2){
+    modLog0 <- glm(as.formula(paste("tdah_2cat_",type.analyse," ~ 1",sep = "")),
+                   family = binomial(link = "logit"), data = modLog$model)
+    pvalglobalemodLog <- (1-pchisq(q = modLog0$deviance - modLog$deviance,
+                                   df = modLog0$df.residual - modLog$df.residual))
+    regLog_TDAH_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "pval.globale" = pvalglobalemodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+  else{
+    regLog_TDAH_PSY_Uni[[i]] <- c("RC" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+}
+rm(modLog,modLog0,nrow.res,res,coefmodLog,pvalmodLog,pvalglobalemodLog,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+selVar_regLog_TDAH_PSY <- c("gender","age","lieu","ville","tspt_2cat_P","anx_2cat_P","freqinjection_P","nbproduitsdif","precaritelogement","tentative_suic_P")
+
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regLog_TDAH_PSY <- append(selVar_regLog_TDAH_PSY,c("code_conf_rec","phase","tdah_2cat_P"),0)
+# __ Découpage lignes __ #
+dataLog_TDAH_PSY  <- get_subdata3PSY(M6 = TRUE) %>% dplyr::select(all_of(selVar_regLog_TDAH_PSY))
+dataLog_TDAH_PSY <- na.omit(dataLog_TDAH_PSY)
+# __ Cas sous-échantillon d'étude __ #
+# dataLog_TDAH_PSY <- filter(dataLog_TDAH_PSY,dataLog_TDAH_PSY$code_conf_rec %in% list_id[["idSCMR"]])
+
+# ___ Modèle complet ___ #
+regLog_TDAH_PSY <- glm(tdah_2cat_P ~ gender + age + lieu + ville + tspt_2cat_P + anx_2cat_P + freqinjection_P + nbproduitsdif + precaritelogement + tentative_suic_P,
+                      family = binomial(link = "logit"),
+                      data = dataLog_TDAH_PSY)
+summary(regLog_TDAH_PSY)
+AIC(regLog_TDAH_PSY)
+
+# ___ Méthode descendante ___ #
+a <- drop1(regLog_TDAH_PSY)
+
+regLog_TDAH_PSY_F <- glm(tdah_2cat_P ~ gender + age + ville + tspt_2cat_P + anx_2cat_P + freqinjection_P,
+                        family = binomial(link = "logit"),
+                        data = dataLog_TDAH_PSY)
+summary(regLog_TDAH_PSY_F)
+AIC(regLog_TDAH_PSY_F)
+a <- drop1(regLog_TDAH_PSY_F)
+
+rm(a)
+
+anova(regLog_TDAH_PSY,regLog_TDAH_PSY_F, test = "Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["TDAH_chezPSY_Uni"]] <- regLog_TDAH_PSY_Uni
+list_models[["TDAH_chezPSY_M.Complet"]] <- regLog_TDAH_PSY
+list_models[["TDAH_chezPSY_M.Final"]] <- regLog_TDAH_PSY_F
+list_results[["TDAH_chezPSY_summary_M.Complet"]] <- summary(list_models[["TDAH_chezPSY_M.Complet"]])
+list_results[["TDAH_chezPSY_summary_M.Final"]] <- summary(list_models[["TDAH_chezPSY_M.Final"]])
+
+list_results[["TDAH_chezPSY_OR+IC_M.Complet"]] <- ORandIC_Log(regLog_TDAH_PSY)
+list_results[["TDAH_chezPSY_OR+IC_M.Final"]] <- ORandIC_Log(regLog_TDAH_PSY_F)
+
+# Pour obtenir les p-valeurs brutes (univariées) de chacunes des variables
+logistic.display(regLog_TDAH_PSY)
+logistic.display(regLog_TDAH_PSY_F)
+# Pour créer le tableau résumé du modèle
+# tbl_regression(regLog_TDAH_PSY_F, exponentiate = TRUE)
+
+
+# ================= Adéquation/discrimination du modèle choisi ================= #
+
+# ___ Test de Hosmer-Lemeshow ___ #
+Hosmer.Lemeshow.test(y = regLog_TDAH_PSY$y, yhat = regLog_TDAH_PSY$fitted.values)
+# Si p.value > 0.05 on ne rejette pas H0 = "Modèle adéquat" => Modèle adéquat
+# Si p.value < 0.05 on rejette H0 = "Modèle adéquat" => Modèle non adéquat
+list_adequation[["TDAH_chezPSY_M.Final_Test_Hosmer-Lemeshow"]] <- Hosmer.Lemeshow.test(y = regLog_TDAH_PSY$y, yhat = regLog_TDAH_PSY$fitted.values)
+
+HL.test(regLog_TDAH_PSY, g = 10)
+o.r.test(regLog_TDAH_PSY)
+stukel.test(regLog_TDAH_PSY)
+
+# ___ Qualité discriminante du modèle ___ #
+plot_ROC(y = regLog_TDAH_PSY$y, phat = regLog_TDAH_PSY$fitted.values)
+pdf(file="figure/plot_regLog_TDAH_chezPSY_adequation_ROC.pdf")
+plot_ROC(y = regLog_TDAH_PSY$y, phat = regLog_TDAH_PSY$fitted.values)
+dev.off()
+
+```
+
+### (Tableau 5) Régression ordinale : ANX + cov -> SCMR (sur cos3PSYSCMR)
+```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","scmr_cat","scmr_cat_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("scmry3_",type.analyse, sep = ""))]
+
+# # MASS
+# modOrd_CP <- polr(scmry3_P ~ ville, Hess = TRUE, data = get_subdata3PSY(M6 = TRUE))
+# summary(modOrd_CP)
+# # VGAM
+# modOrd_CP <- vglm(scmry3_P ~ ville, family = cumulative(parallel = TRUE), data = get_subdata3PSY(M6 = TRUE))
+# summary(modOrd_CP)
+# # ordinal
+# modOrd_CP <- clm(scmry3_P ~ ville, data = get_subdata3PSY(scmr = TRUE, M6 = TRUE))
+# summary(modOrd_CP)
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+# == Cotes proportionnelles == #
+regOrd_SCMR_PSYSCMR_Uni <- list()
+for (i in allUniVar){
+  modOrd <- vglm(as.formula(paste("ordered(scmry3_",type.analyse,") ~ ",i,sep = "")),
+                 family = cumulative(parallel = TRUE, reverse = TRUE),
+                 data = get_subdata3PSY(M6 = TRUE, scmr = TRUE))
+  res <- summary(modOrd)
+  coefmodOrd <- c(res@coef3[3:nrow(res@coef3),1])
+  sdmodOrd <- c(res@coef3[3:nrow(res@coef3),2])
+  ICmodOrd <- c("inf" = res@coef3[3:nrow(res@coef3),1]-1.96*res@coef3[3:nrow(res@coef3),2],
+                "sup" = res@coef3[3:nrow(res@coef3),1]+1.96*res@coef3[3:nrow(res@coef3),2])
+  pvalmodOrd <- c(res@coef3[3:nrow(res@coef3),4])
+  if(nrow(res@coef3) > 3){
+    modOrd0 <- vglm(as.formula(paste("ordered(scmry3_",type.analyse,") ~ 1",sep = "")),
+                    family = cumulative(parallel = TRUE, reverse = TRUE),
+                    data = filter(get_subdata3PSY(M6 = TRUE, scmr = TRUE), !is.na(get_subdata3PSY(M6 = TRUE, scmr = TRUE)[[i]])))
+    pvalglobalemodOrd <- 1-pchisq(q = modOrd0@criterion$deviance - modOrd@criterion$deviance,
+                                  df = modOrd0@df.residual - modOrd@df.residual)
+    regOrd_SCMR_PSYSCMR_Uni[[i]] <- c("OR" = exp(coefmodOrd),
+                                      "sd" = sdmodOrd,
+                                      "IC" = exp(ICmodOrd),
+                                      "pval" = pvalmodOrd,
+                                      "pvalglobale" = pvalglobalemodOrd)
+  }
+  else{
+    regOrd_SCMR_PSYSCMR_Uni[[i]] <- c("OR" = exp(coefmodOrd),
+                                      "sd" = sdmodOrd,
+                                      "IC" = exp(ICmodOrd),
+                                      "pval" = pvalmodOrd)
+  }
+}
+
+
+rm(modOrd,modOrd0,res,coefmodOrd,sdmodOrd,ICmodOrd,pvalmodOrd,pvalglobalemodOrd,i,allUniVar)
+
+# ___ Variables prélevées des analyses univariées ___ #
+selVar_regOrd_SCMR_PSYSCMR <- c("gender","age","tspt_2cat_P","anx_2cat_P","tdah_2cat_P","freqinjection_P","tso_actuel","crack_quot","buprenorphine_hpresc","morphine_quot_hpresc_P","precaritelogement","couvsociale_P","cigarette_P")
+
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regOrd_SCMR_PSYSCMR <- append(selVar_regOrd_SCMR_PSYSCMR,c("code_conf_rec","phase","scmry3_P"),0)
+# __ Découpage lignes __ #
+dataOrd_SCMR_PSYSCMR <- get_subdata3PSY(M6 = TRUE, scmr = TRUE) %>% dplyr::select(all_of(selVar_regOrd_SCMR_PSYSCMR))
+dataOrd_SCMR_PSYSCMR <- na.omit(dataOrd_SCMR_PSYSCMR)
+
+# ___ Modèle complet ___ #
+regOrd_SCMR_PSYSCMR <- vglm(ordered(scmry3_P) ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + freqinjection_P + tso_actuel + crack_quot + buprenorphine_hpresc + morphine_quot_hpresc_P + precaritelogement + couvsociale_P + cigarette_P,
+                        family = cumulative(parallel = TRUE, reverse = TRUE),
+                        data = dataOrd_SCMR_PSYSCMR)
+summary(regOrd_SCMR_PSYSCMR)
+AIC(regOrd_SCMR_PSYSCMR)
+
+# ___ Méthode descendante ___ #
+# a <- drop1(regOrd_SCMR_PSYSCMR)
+
+regOrd_SCMR_PSYSCMR_F <- vglm(ordered(scmry3_P) ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + cigarette_P,
+                              family = cumulative(parallel = TRUE, reverse = TRUE),
+                              data = dataOrd_SCMR_PSYSCMR)
+# summary(regOrd_SCMR_PSYSCMR_F)
+# AIC(regOrd_SCMR_PSYSCMR_F)
+# a <- drop1(regOrd_SCMR_PSYSCMR_F)
+
+# rm(a)
+
+anova(regOrd_SCMR_PSYSCMR,regOrd_SCMR_PSYSCMR_F, type = "I", test = "LRT")
+1-pchisq(regOrd_SCMR_PSYSCMR_F@criterion$deviance - regOrd_SCMR_PSYSCMR@criterion$deviance, df = regOrd_SCMR_PSYSCMR_F@df.residual - regOrd_SCMR_PSYSCMR@df.residual)
+# p > 0.05 : On ne peut pas rejeter le fait que tous les paramètres testés ne valent pas 0 --> Le modèle réduit est à choisir.
+# p < 0.05 : On rejette le fait que tous les paramètres testés valent 0 --> Au moins 1 beta est statistiquement différent de 0 --> On garde le modèle complet.
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["SCMR_chezPSYSCMR_Uni"]] <- regOrd_SCMR_PSYSCMR_Uni
+list_models[["SCMR_chezPSYSCMR_M.Complet"]] <- regOrd_SCMR_PSYSCMR
+list_models[["SCMR_chezPSYSCMR_M.Final"]] <- regOrd_SCMR_PSYSCMR_F
+list_results[["SCMR_chezPSYSCMR_summary_M.Complet"]] <- summary(list_models[["SCMR_chezPSYSCMR_M.Complet"]])
+list_results[["SCMR_chezPSYSCMR_summary_M.Final"]] <- summary(list_models[["SCMR_chezPSYSCMR_M.Final"]])
+
+list_results[["SCMR_chezPSYSCMR_OR+IC_M.Complet"]] <- ORandIC_Ord(regOrd_SCMR_PSYSCMR)
+list_results[["SCMR_chezPSYSCMR_OR+IC_M.Final"]] <- ORandIC_Ord(regOrd_SCMR_PSYSCMR_F)
+
+list_dimensions[["dimOrd_SCMR"]] <- nrow(regOrd_SCMR_PSYSCMR_F@y)
+
+# ___ Résultats analyses univariées avec jeu de données du modèle final ___ #
+regOrd_SCMR_PSYSCMR_Uni_ANX <- vglm(ordered(scmry3_P) ~ anx_2cat_P,
+                                    family = cumulative(parallel = TRUE, reverse = TRUE),
+                                    data = dataOrd_SCMR_PSYSCMR)
+resOrd_ANX <- summary(regOrd_SCMR_PSYSCMR_Uni_ANX)
+resOrd_ANX_tab <- c("RC" = exp(resOrd_ANX@coef3[3,1]),
+                    "IC_inf" = exp((resOrd_ANX@coef3[3,1] - 1.96*resOrd_ANX@coef3[3,2])),
+                    "IC_sup" = exp((resOrd_ANX@coef3[3,1] + 1.96*resOrd_ANX@coef3[3,2])),
+                    "pval" = resOrd_ANX@coef3[3,4])
+resOrd_ANX_tab
+
+regOrd_SCMR_PSYSCMR_Uni_TSPT <- vglm(ordered(scmry3_P) ~ tspt_2cat_P,
+                                     family = cumulative(parallel = TRUE, reverse = TRUE),
+                                     data = dataOrd_SCMR_PSYSCMR)
+resOrd_TSPT <- summary(regOrd_SCMR_PSYSCMR_Uni_TSPT)
+resOrd_TSPT_tab <- c("RC" = exp(resOrd_TSPT@coef3[3,1]),
+                     "IC_inf" = exp((resOrd_TSPT@coef3[3,1] - 1.96*resOrd_TSPT@coef3[3,2])),
+                     "IC_sup" = exp((resOrd_TSPT@coef3[3,1] + 1.96*resOrd_TSPT@coef3[3,2])),
+                     "pval" = resOrd_TSPT@coef3[3,4])
+resOrd_TSPT_tab
+
+regOrd_SCMR_PSYSCMR_Uni_TDAH <- vglm(ordered(scmry3_P) ~ tdah_2cat_P,
+                                     family = cumulative(parallel = TRUE, reverse = TRUE),
+                                     data = dataOrd_SCMR_PSYSCMR)
+resOrd_TDAH <- summary(regOrd_SCMR_PSYSCMR_Uni_TDAH)
+resOrd_TDAH_tab <- c("RC" = exp(resOrd_TDAH@coef3[3,1]),
+                     "IC_inf" = exp((resOrd_TDAH@coef3[3,1] - 1.96*resOrd_TDAH@coef3[3,2])),
+                     "IC_sup" = exp((resOrd_TDAH@coef3[3,1] + 1.96*resOrd_TDAH@coef3[3,2])),
+                     "pval" = resOrd_TDAH@coef3[3,4])
+resOrd_TDAH_tab
+
+# ================= Adéquation/discrimination du modèle choisi ================= #
+
+# __ Premier modèle logistique __ #
+dataOrd_SCMR_PSYSCMR_noFreqH <- dataOrd_SCMR_PSYSCMR
+dataOrd_SCMR_PSYSCMR_noFreqH$scmry3_P_Log1 <- ifelse(as.numeric(dataOrd_SCMR_PSYSCMR_noFreqH$scmry3_P) >= 2, 1, 0)
+table(dataOrd_SCMR_PSYSCMR_noFreqH$scmry3_P_Log1,dataOrd_SCMR_PSYSCMR_noFreqH$scmry3_P)
+regOrd_Log1_SCMR_PSYSCMR <- glm(scmry3_P_Log1 ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + cigarette_P,
+                                family = binomial(link = "logit"),
+                                data = dataOrd_SCMR_PSYSCMR_noFreqH)
+summary(regOrd_Log1_SCMR_PSYSCMR)
+AIC(regOrd_Log1_SCMR_PSYSCMR)
+
+  # _ Adéquation _ #
+HL.test(regOrd_Log1_SCMR_PSYSCMR, g = 10)
+o.r.test(regOrd_Log1_SCMR_PSYSCMR)
+stukel.test(regOrd_Log1_SCMR_PSYSCMR)
+
+  # _ Discrimination _ #
+plot_ROC(y = regOrd_Log1_SCMR_PSYSCMR$y, phat = regOrd_Log1_SCMR_PSYSCMR$fitted.values)
+
+pdf(file="figure/plot_regOrd_Log1_SCMR_chezPSYSCMR_adequation_ROC.pdf")
+plot_ROC(y = regOrd_Log1_SCMR_PSYSCMR$y, phat = regOrd_Log1_SCMR_PSYSCMR$fitted.values)
+dev.off()
+
+  # _ Modélisation des variables quantitatives _ #
+regOrd_Log1_SCMR_PSYSCMR_QUANT <- mfp(scmry3_P_Log1 ~ gender + fp(age, df=4, select=1) + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + cigarette_P,
+                                      family = binomial(link = "logit"),
+                                      data = dataOrd_SCMR_PSYSCMR_noFreqH)
+regOrd_Log1_SCMR_PSYSCMR_QUANT$fptable
+# linéarité avec le logit vérifié avec l'age
+regOrd_Log1_SCMR_PSYSCMR_QUANT$scale
+
+
+# __ Second modèle logistique __ #
+dataOrd_SCMR_PSYSCMR_noFreqB <- dataOrd_SCMR_PSYSCMR
+dataOrd_SCMR_PSYSCMR_noFreqB$scmry3_P_Log2 <- ifelse(as.numeric(dataOrd_SCMR_PSYSCMR_noFreqB$scmry3_P) == 3, 1, 0)
+table(dataOrd_SCMR_PSYSCMR_noFreqB$scmry3_P_Log2,dataOrd_SCMR_PSYSCMR_noFreqB$scmry3_P)
+regOrd_Log2_SCMR_PSYSCMR <- glm(scmry3_P_Log2 ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + cigarette_P,
+                                family = binomial(link = "logit"),
+                                data = dataOrd_SCMR_PSYSCMR_noFreqB)
+summary(regOrd_Log2_SCMR_PSYSCMR)
+AIC(regOrd_Log2_SCMR_PSYSCMR)
+
+  # _ Adéquation _ #
+HL.test(regOrd_Log2_SCMR_PSYSCMR, g = 10)
+o.r.test(regOrd_Log2_SCMR_PSYSCMR)
+stukel.test(regOrd_Log2_SCMR_PSYSCMR)
+
+  # _ Discrimination _ #
+plot_ROC(y = regOrd_Log2_SCMR_PSYSCMR$y, phat = regOrd_Log2_SCMR_PSYSCMR$fitted.values)
+
+pdf(file="figure/plot_regOrd_Log2_SCMR_chezPSYSCMR_adequation_ROC.pdf")
+plot_ROC(y = regOrd_Log2_SCMR_PSYSCMR$y, phat = regOrd_Log2_SCMR_PSYSCMR$fitted.values)
+dev.off()
+
+  # _ Modélisation des variables quantitatives _ #
+regOrd_Log2_SCMR_PSYSCMR_QUANT <- mfp(scmry3_P_Log2 ~ gender + fp(age, df=4, select=1) + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + cigarette_P,
+                                      family = binomial(link = "logit"),
+                                      data = dataOrd_SCMR_PSYSCMR_noFreqB)
+regOrd_Log2_SCMR_PSYSCMR_QUANT$fptable
+# linéarité avec le logit vérifié avec l'age
+regOrd_Log2_SCMR_PSYSCMR_QUANT$scale
+
+# __ Graphiques __ #
+# Fitted VS Résidus de Pearson
+
+pdf(file="figure/plot_regOrd_diagnostic_SCMR_chezPSYSCMR.pdf")
+par(mfrow = c(2,2))
+plot(regOrd_SCMR_PSYSCMR_F)
+dev.off()
+
+# Residuals vs Fitted // QQplot // Scale-Location // Residuals vs Leverage
+pdf(file="figure/plot_regOrd_Log1_diagnostic_SCMR_chezPSYSCMR.pdf")
+par(mfrow = c(2,2))
+plot(regOrd_Log1_SCMR_PSYSCMR)
+#
+#
+#
+#
+dev.off()
+
+# Residuals vs Fitted // QQplot // Scale-Location // Residuals vs Leverage
+pdf(file="figure/plot_regOrd_Log2_diagnostic_SCMR_chezPSYSCMR.pdf")
+par(mfrow = c(2,2))
+plot(regOrd_Log2_SCMR_PSYSCMR)
+# 
+#
+#
+#
+dev.off()
+
+par(mfrow = c(1, 1))
+```
+
+### (Tableau 7) Régression logistique : ANX + SCMR + cov -> RISQ (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Si j'ai le temps, essayer de faire une analyse stratifiée de Mantel-Haenszel et comparer les résultats.
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","scmr_cat","scmr_cat_P","hvy2_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("hvy1_",type.analyse, sep = ""))]
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regLog_RISQ_PSY_Uni <- list()
+for (i in allUniVar){
+  modLog <- glm(as.formula(paste("hvy1_",type.analyse," ~ ",i,sep = "")),
+                family = binomial(link = "logit"),
+                data = get_subdata3PSY(M6 = TRUE)) # data = get_subdata3PSY(M6 = TRUE) car on ne souhaite pas particulièrement que toutes les analyses multivariées soient réalisés EXACTEMENT sur le même échantillon de données, contrairement à l'analyse multivariée où cela sera nécessaire afin de pouvoir faire des tests sur modèles emboîtés pour le choix du modèle.
+  res <- summary(modLog)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodLog <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodLog <- res[["coefficients"]][2:nrow.res,1]
+  ICmodLog <- c("inf" = res[["coefficients"]][2:nrow.res,1]-1.96*res[["coefficients"]][2:nrow.res,2],
+                "sup" = res[["coefficients"]][2:nrow.res,1]+1.96*res[["coefficients"]][2:nrow.res,2])
+  pvalmodLog <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow.res > 2){
+    modLog0 <- glm(as.formula(paste("hvy1_",type.analyse," ~ 1",sep = "")),
+                   family = binomial(link = "logit"),
+                   data = modLog$model)
+    # pvalglobalemodLog <- as.numeric(logistic.display(modLog)[["table"]][1,"P(LR-test)"])
+    pvalglobalemodLog <- (1-pchisq(q = modLog0$deviance - modLog$deviance,
+                                   df = modLog0$df.residual - modLog$df.residual))
+    regLog_RISQ_PSY_Uni[[i]] <- c("OR" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "pval.globale" = pvalglobalemodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+  else{
+    regLog_RISQ_PSY_Uni[[i]] <- c("OR" = exp(coefmodLog),
+                                  "sd" = sdmodLog,
+                                  "IC" = exp(ICmodLog),
+                                  "pval" = pvalmodLog,
+                                  "convergence" = modLog[["converged"]])
+  }
+}
+rm(modLog,modLog0,nrow.res,res,coefmodLog,sdmodLog,ICmodLog,pvalmodLog,pvalglobalemodLog,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+# seuil 0,10
+selVar_regLog_RISQ_PSY <- c("gender","age","tspt_2cat_P","anx_2cat_P","tdah_2cat_P","scmry3_P","freqinjection_P","cocaine_quot_P","methadone_hpresc","nbproduitsdif","aidealimentaire")
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regLog_RISQ_PSY <- append(selVar_regLog_RISQ_PSY,c("code_conf_rec","phase","hvy1_P"),0)
+# __ Découpage lignes __ #
+dataLog_RISQ_PSY  <- get_subdata3PSY(M6 = TRUE) %>% dplyr::select(all_of(selVar_regLog_RISQ_PSY))
+dataLog_RISQ_PSY <- na.omit(dataLog_RISQ_PSY)
+# __ Cas sous-échantillon d'étude __ #
+# dataLog_RISQ_PSY <- filter(dataLog_RISQ_PSY,dataLog_RISQ_PSY$code_conf_rec %in% list_id[["idSCMR"]])
+
+# ___ Modèle complet ___ #
+regLog_RISQ_PSY <- glm(hvy1_P ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + freqinjection_P + cocaine_quot_P + methadone_hpresc + nbproduitsdif + aidealimentaire,
+                       family = binomial(link = "logit"),
+                       data = dataLog_RISQ_PSY)
+summary(regLog_RISQ_PSY)
+AIC(regLog_RISQ_PSY)
+
+# ___ Méthode descendante ___ #
+a <- drop1(regLog_RISQ_PSY)
+
+regLog_RISQ_PSY_F <- glm(hvy1_P ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + methadone_hpresc + nbproduitsdif,
+                         family = binomial(link = "logit"),
+                         data = dataLog_RISQ_PSY)
+summary(regLog_RISQ_PSY_F)
+AIC(regLog_RISQ_PSY_F)
+a <- drop1(regLog_RISQ_PSY_F)
+
+rm(a)
+
+anova(regLog_RISQ_PSY,regLog_RISQ_PSY_F, test = "Chisq")
+
+# ___ Modèle niché (sans SCMR) ___ #
+regLog_RISQ_PSY_F2 <- glm(hvy1_P ~ gender + age + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + methadone_hpresc + nbproduitsdif,
+                         family = binomial(link = "logit"),
+                         data = dataLog_RISQ_PSY)
+summary(regLog_RISQ_PSY_F2)
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["RISQ_chezPSY_Uni"]] <- regLog_RISQ_PSY_Uni
+list_models[["RISQ_chezPSY_M.Complet"]] <- regLog_RISQ_PSY
+list_models[["RISQ_chezPSY_M.Final"]] <- regLog_RISQ_PSY_F
+list_results[["RISQ_chezPSY_summary_M.Complet"]] <- summary(list_models[["RISQ_chezPSY_M.Complet"]])
+list_results[["RISQ_chezPSY_summary_M.Final"]] <- summary(list_models[["RISQ_chezPSY_M.Final"]])
+
+list_results[["RISQ_chezPSY_OR+IC_M.Complet"]] <- ORandIC_Log(regLog_RISQ_PSY)
+list_results[["RISQ_chezPSY_OR+IC_M.Final"]] <- ORandIC_Log(regLog_RISQ_PSY_F)
+list_results[["RISQ_chezPSY_OR+IC_M.Final(-SCMR)"]] <- ORandIC_Log(regLog_RISQ_PSY_F2)
+
+list_dimensions[["dimLog_RISQ"]] <- length(regLog_RISQ_PSY_F[["y"]])
+
+# Pour obtenir les p-valeurs brutes (univariées) de chacunes des variables
+logistic.display(regLog_RISQ_PSY_F)
+# Pour créer le tableau résumé du modèle
+# tbl_regression(regLog_RISQ_PSY_F, exponentiate = TRUE)
+
+
+# ================= Adéquation/discrimination du modèle choisi ================= #
+
+# ___ Test d'adéquation ___ #
+Hosmer.Lemeshow.test(y = regLog_RISQ_PSY_F$y, yhat = regLog_RISQ_PSY_F$fitted.values)
+# Si p.value > 0.05 on ne rejette pas H0 = "Modèle adéquat" => Modèle adéquat
+# Si p.value < 0.05 on rejette H0 = "Modèle adéquat" => Modèle non adéquat
+list_adequation[["RISQ_chezPSY_M.Final_Test_Hosmer-Lemeshow"]] <- Hosmer.Lemeshow.test(y = regLog_RISQ_PSY_F$y, yhat = regLog_RISQ_PSY_F$fitted.values)
+
+HL.test(regLog_RISQ_PSY_F, g = 10)
+o.r.test(regLog_RISQ_PSY_F)
+stukel.test(regLog_RISQ_PSY_F)
+
+# ___ Qualité discriminante du modèle ___ #
+plot_ROC(y = regLog_RISQ_PSY_F$y, phat = regLog_RISQ_PSY_F$fitted.values)
+pdf(file="figure/plot_regLog_RISQ_chezPSY_adequation_ROC.pdf")
+plot_ROC(y = regLog_RISQ_PSY_F$y, phat = regLog_RISQ_PSY_F$fitted.values)
+dev.off()
+
+# __ Modélisation des variables quantitatives __ #
+regLog_RISQ_PSY_F_PF.QUANT <- mfp(hvy1_P ~ gender + fp(age, df=4, select=1) + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + methadone_hpresc + fp(nbproduitsdif, df=4, select=1),
+                                  family = binomial(link = "logit"),
+                                  data = dataLog_RISQ_PSY,
+                                  rescale = FALSE)
+summary(regLog_RISQ_PSY_F_PF.QUANT)
+regLog_RISQ_PSY_F_PF.QUANT$fptable
+regLog_RISQ_PSY_F_PF.QUANT$scale
+pf <- function(x){
+  p1 <- I((x+1/10)^1)
+  list(p1=p1)
+}
+  # _ graphique ÂGE _ #
+b1 <- regLog_RISQ_PSY_F_PF.QUANT[["coefficients"]][["age.1"]]
+varb1 <- regLog_RISQ_PSY_F_PF.QUANT[["var"]]["age.1","age.1"]
+
+xval <- min(dataLog_RISQ_PSY$age):max(dataLog_RISQ_PSY$age)
+ref <- mean(dataLog_RISQ_PSY$age)
+diff1 <- pf(xval)$p1 - pf(ref)$p1
+lnOR <- b1*diff1
+plot(xval,lnOR, xlab="BMI en kg/m2",ylab="ln OR", type="l",ylim=c(-10,10))
+varlnOR <- varb1 # vérifier !!!!!
+Linf <- lnOR - 1.96*sqrt(varlnOR)
+Lsup <- lnOR + 1.96*sqrt(varlnOR)
+lines(xval,Linf,lty=2)
+lines(xval,Lsup,lty=2)
+abline(h=0)
+rm(b1,diff1,Linf,lnOR,Lsup,ref,varb1,varlnOR,xval)
+
+# __ Graphiques __ #
+pdf(file="figure/plot_regLog_diagnostic_RISQ_chezPSY.pdf")
+par(mfrow = c(2,2))
+plot(regLog_RISQ_PSY_F)
+#
+#
+#
+#
+dev.off()
+par(mfrow = c(1, 1))
+
+```
+
+### (Tableau 9) Régression de Poisson : ANX + SCMR + cov -> NBRISQ (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","scmr_cat","scmr_cat_P","hvy1_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("hvy2_",type.analyse, sep = ""))]
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regPois_NBRISQ_PSY_Uni <- list()
+for (i in allUniVar){
+  modPois <- glm(as.formula(paste("hvy2_",type.analyse," ~ ",i,sep = "")),
+                 family = poisson(link = "log"),
+                 data = get_subdata3PSY(M6 = TRUE))
+  res <- summary(modPois)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodPois <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodPois <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodPois <- c("inf" = coefmodPois - 1.96*sdmodPois,
+                 "sup" = coefmodPois + 1.96*sdmodPois)
+  pvalmodPois<- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow.res > 2){
+    modPois0 <- glm(as.formula(paste("hvy2_",type.analyse," ~ 1",sep = "")),
+                    family = poisson(link = "log"),
+                    data = modPois$model)
+    pvalglobalemodPois <- 1-pchisq(q = modPois0$deviance - modPois$deviance,
+                                   df = modPois0$df.residual - modPois$df.residual)
+    regPois_NBRISQ_PSY_Uni[[i]] <- c("RR" = exp(coefmodPois),
+                                     "sd" = sdmodPois,
+                                     "IC" = exp(ICmodPois),
+                                     "pval" = pvalmodPois,
+                                     "pval.globale" = pvalglobalemodPois,
+                                     "convergence" = modPois[["converged"]])
+  }
+  else{
+    regPois_NBRISQ_PSY_Uni[[i]] <- c("RR" = exp(coefmodPois),
+                                     "sd" = sdmodPois,
+                                     "IC" = exp(ICmodPois),
+                                     "pval" = pvalmodPois,
+                                     "convergence" = modPois[["converged"]])
+  }
+}
+
+rm(modPois,modPois0,nrow.res,res,coefmodPois,sdmodPois,ICmodPois,pvalmodPois,pvalglobalemodPois,a,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+# seuil 0,20
+selVar_regPois_NBRISQ_PSY <- c("gender","age","lieu","ville","tspt_2cat_P","anx_2cat_P","tdah_2cat_P","scmry3_P","freqinjection_P","cocaine_quot_P","methadone_hpresc","nbproduitsdif","encouple_P","aidealimentaire","prison_P")
+
+# ================= Analyses multivariées ================= #
+
+# == Poisson #
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regPois_NBRISQ_PSY <- append(selVar_regPois_NBRISQ_PSY,c("code_conf_rec","phase","hvy2_P"),0)
+# __ Découpage lignes __ #
+dataPois_NBRISQ_PSY  <- get_subdata3PSY(M6 = TRUE) %>% dplyr::select(all_of(selVar_regPois_NBRISQ_PSY))
+dataPois_NBRISQ_PSY <- na.omit(dataPois_NBRISQ_PSY)
+
+# ___ Modèle complet ___ #
+regPois_NBRISQ_PSY <- glm(hvy2_P ~ gender + age + lieu + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + freqinjection_P + cocaine_quot_P + methadone_hpresc + nbproduitsdif + encouple_P + aidealimentaire + prison_P,
+                          family = poisson(link = "log"),
+                          data = dataPois_NBRISQ_PSY)
+summary(regPois_NBRISQ_PSY)
+
+# ___ Méthode descendante ___ #
+a <- drop1(regPois_NBRISQ_PSY)
+
+regPois_NBRISQ_PSY_F <- glm(hvy2_P ~ gender + age + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + nbproduitsdif + encouple_P + aidealimentaire,
+                            family = poisson(link = "log"),
+                            data = regPois_NBRISQ_PSY$model)
+summary(regPois_NBRISQ_PSY_F)
+a <- drop1(regPois_NBRISQ_PSY_F)
+
+rm(a)
+
+anova(regPois_NBRISQ_PSY,regPois_NBRISQ_PSY_F,test="Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["NBRISQ_chezPSY_Uni"]] <- regPois_NBRISQ_PSY_Uni
+list_models[["NBRISQ_chezPSY_M.Complet"]] <- regPois_NBRISQ_PSY
+list_models[["NBRISQ_chezPSY_M.Final"]] <- regPois_NBRISQ_PSY_F
+list_results[["NBRISQ_chezPSY_summary_M.Complet"]] <- summary(list_models[["NBRISQ_chezPSY_M.Complet"]])
+list_results[["NBRISQ_chezPSY_summary_M.Final"]] <- summary(list_models[["NBRISQ_chezPSY_M.Final"]])
+
+list_results[["NBRISQ_chezPSY_RR+IC_M.Complet"]] <- RRandIC_Pois(regPois_NBRISQ_PSY)
+list_results[["NBRISQ_chezPSY_RR+IC_M.Final"]] <- RRandIC_Pois(regPois_NBRISQ_PSY_F)
+
+list_dimensions[["dimPois_NBRISQ"]] <- length(regPois_NBRISQ_PSY_F[["y"]])
+
+# _ Modèles univariés complémentaires _ #
+  # Anxiété #
+regPois_NBRISQ_PSY_ANX <- glm(hvy2_P ~ anx_2cat_P,
+                              family = poisson(link = "log"),
+                              data = dataPois_NBRISQ_PSY)
+res_ANX <- summary(regPois_NBRISQ_PSY_ANX)
+resPois_ANX_tab <- c("RR" = exp(res_ANX[["coefficients"]][2,1]),
+                     "IC_inf" = exp(res_ANX[["coefficients"]][2,1] - 1.96*res_ANX[["coefficients"]][2,2]),
+                     "IC_sup" = exp(res_ANX[["coefficients"]][2,1] + 1.96*res_ANX[["coefficients"]][2,2]),
+                     "pval" = res_ANX[["coefficients"]][2,4])
+resPois_ANX_tab
+
+  # TSPT #
+regPois_NBRISQ_PSY_TSPT <- glm(hvy2_P ~ tspt_2cat_P,
+                               family = poisson(link = "log"),
+                               data = dataPois_NBRISQ_PSY)
+res_TSPT <- summary(regPois_NBRISQ_PSY_TSPT)
+resPois_TSPT_tab <- c("RR" = exp(res_TSPT[["coefficients"]][2,1]),
+                      "IC_inf" = exp(res_TSPT[["coefficients"]][2,1] - 1.96*res_TSPT[["coefficients"]][2,2]),
+                      "IC_sup" = exp(res_TSPT[["coefficients"]][2,1] + 1.96*res_TSPT[["coefficients"]][2,2]),
+                      "pval" = res_TSPT[["coefficients"]][2,4])
+resPois_TSPT_tab
+
+  # TDAH #
+regPois_NBRISQ_PSY_TDAH <- glm(hvy2_P ~ tdah_2cat_P,
+                               family = poisson(link = "log"),
+                               data = dataPois_NBRISQ_PSY)
+res_TDAH <- summary(regPois_NBRISQ_PSY_TDAH)
+resPois_TDAH_tab <- c("RR" = exp(res_TDAH[["coefficients"]][2,1]),
+                      "IC_inf" = exp(res_TDAH[["coefficients"]][2,1] - 1.96*res_TDAH[["coefficients"]][2,2]),
+                      "IC_sup" = exp(res_TDAH[["coefficients"]][2,1] + 1.96*res_TDAH[["coefficients"]][2,2]),
+                      "pval" = res_TDAH[["coefficients"]][2,4])
+resPois_TDAH_tab
+
+  # SCMR #
+regPois_NBRISQ_PSY_SCMR <- glm(hvy2_P ~ scmry3_P,
+                               family = poisson(link = "log"),
+                               data = dataPois_NBRISQ_PSY)
+res_SCMR <- summary(regPois_NBRISQ_PSY_SCMR)
+resPois_SCMR_tab <- c("RR" = exp(res_SCMR[["coefficients"]][2:3,1]),
+                      "IC_inf" = exp(res_SCMR[["coefficients"]][2:3,1] - 1.96*res_SCMR[["coefficients"]][2:3,2]),
+                      "IC_sup" = exp(res_SCMR[["coefficients"]][2:3,1] + 1.96*res_SCMR[["coefficients"]][2:3,2]),
+                      "pval" = res_SCMR[["coefficients"]][2:3,4])
+resPois_SCMR_tab
+
+
+# ================= Adéquation du modèle choisi ================= #
+
+# __ Test de dispersion __ #
+stat.desc(get_subdata3PSY(M6 = TRUE)$hvy2_P)[["var"]] / stat.desc(get_subdata3PSY(M6 = TRUE)$hvy2_P)[["mean"]]
+
+stat.desc(dataPois_NBRISQ_PSY$hvy2_P)[["var"]] / stat.desc(dataPois_NBRISQ_PSY$hvy2_P)[["mean"]]
+dispersiontest(regPois_NBRISQ_PSY)
+
+
+dispersiontest(regPois_NBRISQ_PSY_F)
+
+  # __ Quasi-Poisson __ #
+regPois_NBRISQ_PSY_QP <- glm(hvy2_P ~ gender + age + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + nbproduitsdif + encouple_P + aidealimentaire,
+                             family = quasipoisson(link = "log"),
+                             data = dataPois_NBRISQ_PSY)
+summary(regPois_NBRISQ_PSY_QP)
+summary(regPois_NBRISQ_PSY_QP)$dispersion
+plot(regPois_NBRISQ_PSY_QP)
+#
+#
+#
+#
+
+  # __ Binomial négatif __ #
+regPois_NBRISQ_PSY_BN <- glm.nb(hvy2_P ~ gender + age + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + nbproduitsdif + encouple_P + aidealimentaire,
+                                data = dataPois_NBRISQ_PSY)
+summary(regPois_NBRISQ_PSY_BN)
+
+  # _ Choix QP ou NB avec graphique Variance selon Esperance _ #
+xb <- predict(regPois_NBRISQ_PSY_BN)
+g <- cut(xb, breaks=quantile(xb,seq(0,100,5)/100))
+m <- tapply(regPois_NBRISQ_PSY_F$y, g, mean)
+v <- tapply(regPois_NBRISQ_PSY_F$y, g, var)
+pdf(file="figure/plot_regPois_NBRISQ_chezPSY_adequation_QPBN.pdf")
+plot(m,v,xlab = "Moyenne", ylab = "Variance", main = "")
+pr <- residuals(regPois_NBRISQ_PSY_F,"pearson")
+phi <- sum(pr^2)/df.residual(regPois_NBRISQ_PSY_F)
+phi
+
+x <- seq(0,15,0.02)
+lines(x, x*phi, lty="dashed") # Quasi-Poisson (ligne coupée)
+lines(x, x*(1+x/regPois_NBRISQ_PSY_BN$theta)) #Binomial négatif (ligne pleine)
+dev.off()
+
+rm(g,m,phi,pr,v,x,xb)
+
+list_results[["NBRISQ_chezPSY_RR+IC_M.Final_QuasiPoisson"]] <- RRandIC_Pois(regPois_NBRISQ_PSY_QP)
+
+# ___ Modèle niché (sans SCMR) ___ #
+regPois_NBRISQ_PSY_QP2 <- glm(hvy2_P ~ gender + age + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + nbproduitsdif + encouple_P + aidealimentaire,
+                              family = quasipoisson(link = "log"),
+                              data = regPois_NBRISQ_PSY$model)
+summary(regPois_NBRISQ_PSY_QP)
+list_results[["NBRISQ_chezPSY_RR+IC_M.Final_QuasiPoisson(-SCMR)"]] <- RRandIC_Pois(regPois_NBRISQ_PSY_QP2)
+
+# __ Modélisation des variables quantitatives __ #
+regLog_NBRISQ_PSY_F_PF.QUANT <- mfp(hvy2_P ~ gender + fp(age, df=4, select=1) + ville + tspt_2cat_P + anx_2cat_P + tdah_2cat_P + scmry3_P + methadone_hpresc + fp(nbproduitsdif, df=4, select=1) + encouple_P + aidealimentaire,
+                                    family = poisson,
+                                    data = dataPois_NBRISQ_PSY,
+                                    rescale = FALSE)
+summary(regLog_NBRISQ_PSY_F_PF.QUANT)
+regLog_NBRISQ_PSY_F_PF.QUANT$fptable
+regLog_NBRISQ_PSY_F_PF.QUANT$scale
+
+# __ Graphiques __ #
+plot(regPois_NBRISQ_PSY_F)
+#
+#
+#
+#
+pdf(file="figure/plot_regPois_diagnostic_NBRISQ_chezPSY.pdf")
+par(mfrow = c(2,2))
+plot(regPois_NBRISQ_PSY_QP)
+#
+#
+#
+#
+par(mfrow = c(1, 1))
+dev.off()
+plot(regPois_NBRISQ_PSY_BN)
+#
+#
+#
+#
+```
+
+
+## ANALYSES LONGITUDINALES SUR SCMR, RISQ et NBRISQ
+
+### (Tableau 6) Régression ordinale mixte : TSPT + TDAH + cov -> SCMR (sur cos3PSYSCMR)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+data3PSYspag <- filter(data3PSY, !is.na(data3PSY$scmry3_P))
+data3PSYspag <- filter(data3PSYspag, data3PSYspag$scmr_cat == "Déjà fréq. SCMR")
+
+spagSCMR_delai <- ggplot(data = data3PSYspag, aes(x = delai, y = scmry3_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("SCMR")
+pdf(file="figure/plot_spaghetti_SCMR_chezPSYSCMR_delai.pdf")
+spagSCMR_delai
+dev.off()
+
+spagSCMR_MX <- ggplot(data = data3PSYspag, aes(x = phase, y = scmry3_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("SCMR")
+pdf(file="figure/plot_spaghetti_SCMR_chezPSYSCMR_MX.pdf")
+spagSCMR_MX
+dev.off()
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ================= Analyses univariées ================= #
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","anx_4cat_P","anx_3cat_P","anx_2cat_P","scmr_cat","scmr_cat_P","scmry3_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("scmry3_",type.analyse, sep = ""))]
+
+dataMixOrd_SCMR_PSYSCMR_Uni <- get_subdata3PSY(scmr = TRUE)
+dataMixOrd_SCMR_PSYSCMR_Uni$delai.mois <- dataMixOrd_SCMR_PSYSCMR_Uni$delai/30
+# list_dimensions[["dimMixOrd_Uni"]] <- c("N" = nrow(dataMixOrd_SCMR_PSYSCMR_Uni), "n" = length(unique(dataMixOrd_SCMR_PSYSCMR_Uni$code_conf_rec)))
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regMixOrd_SCMR_PSYSCMR_Uni <- list()
+for (i in allUniVar){
+  modMixOrd <- clmm(as.formula(paste("scmry3_",type.analyse," ~ ",i," + delai.mois + (1 + delai.mois | code_conf_rec)",sep = "")),
+                    Hess = TRUE,
+                    link = "logit",
+                    data = dataMixOrd_SCMR_PSYSCMR_Uni) # pas d'interaction temps x variable car problème pour le solveur
+  res <- summary(modMixOrd)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodMixOrd <- c(res[["coefficients"]][3:nrow.res,1])
+  sdmodMixOrd <- c(res[["coefficients"]][3:nrow.res,2])
+  ICmodMixOrd <- c("inf" = coefmodMixOrd - 1.96*sdmodMixOrd,
+                 "sup" = coefmodMixOrd + 1.96*sdmodMixOrd)
+  pvalmodMixOrd <- c(res[["coefficients"]][3:nrow.res,4])
+  if (nrow.res > 4){
+    modMixOrd0 <- clmm(as.formula(paste("scmry3_",type.analyse," ~ 1 + delai.mois + (1 + delai.mois | code_conf_rec)",sep = "")),
+                       Hess = TRUE,
+                       link = "logit",
+                       data = modMixOrd[["model"]])
+    pvalglobalemodMixOrd <- anova(modMixOrd,modMixOrd0)[2,"Pr(>Chisq)"]
+    regMixOrd_SCMR_PSYSCMR_Uni[[i]] <- c("RC" = exp(coefmodMixOrd),
+                                         "sd" = sdmodMixOrd,
+                                         "IC" = exp(ICmodMixOrd),
+                                         "pval" = pvalmodMixOrd,
+                                         "pval.globale" = pvalglobalemodMixOrd,
+                                         "convergence" = c(modMixOrd[["optRes"]][["convergence"]]))
+  }
+  else{
+    regMixOrd_SCMR_PSYSCMR_Uni[[i]] <- c("RC" = exp(coefmodMixOrd),
+                                         "sd" = sdmodMixOrd,
+                                         "IC" = exp(ICmodMixOrd),
+                                         "pval" = pvalmodMixOrd,
+                                         "convergence" = c(modMixOrd[["optRes"]][["convergence"]]))
+  }
+}
+
+rm(modMixOrd,modMixOrd0,nrow.res,res,res0,coefmodMixOrd,sdmodMixOrd,ICmodMixOrd,pvalmodMixOrd,pvalglobalemodMixOrd,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+selVar_regMixOrd_SCMR_PSYSCMR <- c("gender","age","tspt_2cat_P","tdah_2cat_P","freqinjection_P","tso_actuel","crack_quot","morphine_quot_hpresc_P","precaritelogement","couvsociale_P","aidealimentaire","allocpension_P","tentative_suic_P","cigarette_P")
+
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regMixOrd_SCMR_PSYSCMR <- append(selVar_regMixOrd_SCMR_PSYSCMR,c("code_conf_rec","phase","delai","scmry3_P"),0)
+# __ Découpage lignes __ #
+dataMixOrd_SCMR_PSYSCMR <- get_subdata3PSY(scmr = TRUE) %>% dplyr::select(all_of(selVar_regMixOrd_SCMR_PSYSCMR))
+dataMixOrd_SCMR_PSYSCMR <- na.omit(dataMixOrd_SCMR_PSYSCMR)
+list_dimensions[["dimMixOrd_SCMR"]] <- c("n" = length(unique(dataMixOrd_SCMR_PSYSCMR$code_conf_rec)),
+                                         "N" = nrow(dataMixOrd_SCMR_PSYSCMR))
+# __ Cas sous-échantillon d'étude __ #
+# dataMixOrd_SCMR_PSYSCMR <- filter(dataMixOrd_SCMR_PSYSCMR,dataMixOrd_SCMR_PSYSCMR$code_conf_rec %in% list_id[["idSCMR"]])
+
+# L'âge a été enlevé car les modèles ne tournaient quasiment jamais avec
+
+# ___ Modèle complet ___ #
+regMixOrd_SCMR_PSYSCMR <- clmm(scmry3_P ~ I(delai/30) + gender + tspt_2cat_P + tdah_2cat_P + freqinjection_P + tso_actuel + crack_quot + morphine_quot_hpresc_P + precaritelogement + couvsociale_P + aidealimentaire + allocpension_P + tentative_suic_P + cigarette_P
+                               + (1 + I(delai/30) | code_conf_rec),
+                               Hess = TRUE,
+                               link = "logit",
+                               data = dataMixOrd_SCMR_PSYSCMR)
+summary(regMixOrd_SCMR_PSYSCMR)
+AIC(regMixOrd_SCMR_PSYSCMR)
+
+# ___ Méthode descendante ___ #
+
+# a <- drop1(regMixOrd_SCMR_PSYSCMR)
+regMixOrd_SCMR_PSYSCMR_F <- clmm(scmry3_P ~ I(delai/30) + gender + tspt_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + precaritelogement + aidealimentaire + allocpension_P + cigarette_P
+                                 + (1 + I(delai/30) | code_conf_rec),
+                                 Hess = TRUE,
+                                 link = "logit",
+                                 data = dataMixOrd_SCMR_PSYSCMR)
+summary(regMixOrd_SCMR_PSYSCMR_F)
+AIC(regMixOrd_SCMR_PSYSCMR_F)
+
+# a <- drop1(regMixOrd_SCMR_PSYSCMR_F)
+# rm(a)
+
+anova(regMixOrd_SCMR_PSYSCMR,regMixOrd_SCMR_PSYSCMR_F, test = "Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+
+list_models[["Mix_SCMR_chezPSYSCMR_Uni"]] <- regMixOrd_SCMR_PSYSCMR_Uni
+list_models[["Mix_SCMR_chezPSYSCMR_M.Complet"]] <- regMixOrd_SCMR_PSYSCMR
+list_models[["Mix_SCMR_chezPSYSCMR_M.Final"]] <- regMixOrd_SCMR_PSYSCMR_F
+list_results[["Mix_SCMR_chezPSYSCMR_summary_M.Complet"]] <- summary(list_models[["Mix_SCMR_chezPSYSCMR_M.Complet"]])
+list_results[["Mix_SCMR_chezPSYSCMR_summary_M.Final"]] <- summary(list_models[["Mix_SCMR_chezPSYSCMR_M.Final"]])
+
+list_results[["Mix_SCMR_chezPSYSCMR_OR+IC_M.Complet"]] <- ORandIC_MixOrd(regMixOrd_SCMR_PSYSCMR)
+list_results[["Mix_SCMR_chezPSYSCMR_OR+IC_M.Final"]] <- ORandIC_MixOrd(regMixOrd_SCMR_PSYSCMR_F)
+
+# _ Modèles univariés complémentaires _ #
+  # Delai #
+regMixOrd_SCMR_PSYSCMR_Uni_delai <- clmm(scmry3_P ~ I(delai/30) + (1 + I(delai/30) | code_conf_rec),
+                                         Hess = TRUE,
+                                         link = "logit",
+                                         data = dataMixOrd_SCMR_PSYSCMR)
+res_delai <- summary(regMixOrd_SCMR_PSYSCMR_Uni_delai)
+resOrd_delai_tab <- c("RC" = exp(-res_delai[["coefficients"]][3,1]),
+                      "IC_inf" = exp(-(res_delai[["coefficients"]][3,1] + 1.96*res_delai[["coefficients"]][2,2])),
+                      "IC_sup" = exp(-(res_delai[["coefficients"]][3,1] - 1.96*res_delai[["coefficients"]][2,2])),
+                      "pval" = res_delai[["coefficients"]][3,4])
+resOrd_delai_tab
+
+  # TSPT #
+regMixOrd_SCMR_PSYSCMR_Uni_TSPT <- clmm(scmry3_P ~ tspt_2cat_P + I(delai/30) + (1 + I(delai/30) | code_conf_rec),
+                                        Hess = TRUE,
+                                        link = "logit",
+                                        data = dataMixOrd_SCMR_PSYSCMR)
+res_TSPT <- summary(regMixOrd_SCMR_PSYSCMR_Uni_TSPT)
+resOrd_TSPT_tab <- c("RC" = exp(-res_TSPT[["coefficients"]][3,1]),
+                     "IC_inf" = exp(-(res_TSPT[["coefficients"]][3,1] + 1.96*res_TSPT[["coefficients"]][3,2])),
+                     "IC_sup" = exp(-(res_TSPT[["coefficients"]][3,1] - 1.96*res_TSPT[["coefficients"]][3,2])),
+                     "pval" = res_TSPT[["coefficients"]][3,4])
+resOrd_TSPT_tab
+
+  # TDAH #
+regMixOrd_SCMR_PSYSCMR_Uni_TDAH <- clmm(scmry3_P ~ tdah_2cat_P + I(delai/30) + (1 + I(delai/30) | code_conf_rec),
+                                             Hess = TRUE,
+                                             link = "logit",
+                                             data = dataMixOrd_SCMR_PSYSCMR)
+res_TDAH <- summary(regMixOrd_SCMR_PSYSCMR_Uni_TDAH)
+resOrd_TDAH_tab <- c("RC" = exp(-res_TDAH[["coefficients"]][3,1]),
+                     "IC_inf" = exp(-(res_TDAH[["coefficients"]][3,1] + 1.96*res_TDAH[["coefficients"]][3,2])),
+                     "IC_sup" = exp(-(res_TDAH[["coefficients"]][3,1] - 1.96*res_TDAH[["coefficients"]][3,2])),
+                     "pval" = res_TDAH[["coefficients"]][3,4])
+resOrd_TDAH_tab
+
+# ================= Adéquation du modèle choisi ================= #
+
+# Premier modèle logistique mixte binaire #
+dataMixOrd_SCMR_PSYSCMR_noFreqH <- dataMixOrd_SCMR_PSYSCMR
+dataMixOrd_SCMR_PSYSCMR_noFreqH$scmry3_P_Log1 <- ifelse(as.numeric(dataMixOrd_SCMR_PSYSCMR_noFreqH$scmry3_P) >= 2, 1, 0)
+table(dataMixOrd_SCMR_PSYSCMR_noFreqH$scmry3_P_Log1,dataMixOrd_SCMR_PSYSCMR_noFreqH$scmry3_P)
+
+regMixOrd_Log1_SCMR_PSYSCMR <- glmer(scmry3_P_Log1 ~ I(delai/30) + gender + tspt_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + precaritelogement + aidealimentaire + allocpension_P + cigarette_P
+                                     + (1 + I(delai/30) | code_conf_rec),
+                                     family = binomial(link = "logit"),
+                                     data = dataMixOrd_SCMR_PSYSCMR_noFreqH)
+summary(regMixOrd_Log1_SCMR_PSYSCMR)
+AIC(regMixOrd_Log1_SCMR_PSYSCMR)
+
+Hosmer.Lemeshow.test(y = regMixOrd_Log1_SCMR_PSYSCMR@frame[["scmry3_P_Log1"]], yhat = fitted( regMixOrd_Log1_SCMR_PSYSCMR))
+
+# Second modèle logistique mixte binaire #
+dataMixOrd_SCMR_PSYSCMR_noFreqB <- dataMixOrd_SCMR_PSYSCMR
+dataMixOrd_SCMR_PSYSCMR_noFreqB$scmry3_P_Log2 <- ifelse(as.numeric(dataMixOrd_SCMR_PSYSCMR_noFreqB$scmry3_P) == 3, 1, 0)
+table(dataMixOrd_SCMR_PSYSCMR_noFreqB$scmry3_P_Log2,dataMixOrd_SCMR_PSYSCMR_noFreqB$scmry3_P)
+
+regMixOrd_Log2_SCMR_PSYSCMR <- glmer(scmry3_P_Log2 ~ I(delai/30) + gender + tspt_2cat_P + tdah_2cat_P + crack_quot + morphine_quot_hpresc_P + precaritelogement + aidealimentaire + allocpension_P + cigarette_P 
+                                     + (1 + I(delai/30) | code_conf_rec),
+                                     family = binomial(link = "logit"),
+                                     data = dataMixOrd_SCMR_PSYSCMR_noFreqB)
+summary(regMixOrd_Log2_SCMR_PSYSCMR)
+AIC(regMixOrd_Log2_SCMR_PSYSCMR)
+
+Hosmer.Lemeshow.test(y = regMixOrd_Log2_SCMR_PSYSCMR@frame[["scmry3_P_Log2"]], yhat = fitted( regMixOrd_Log2_SCMR_PSYSCMR))
+
+# Courbes ROC #
+pdf(file="figure/plot_regMixOrd_Log1_SCMR_chezPSYSCMR_adequation_ROC.pdf")
+plot_ROC(y = regMixOrd_Log1_SCMR_PSYSCMR@frame$scmry3_P_Log1, phat = fitted(regMixOrd_Log1_SCMR_PSYSCMR))
+dev.off()
+pdf(file="figure/plot_regMixOrd_Log2_SCMR_chezPSYSCMR_adequation_ROC.pdf")
+plot_ROC(y = regMixOrd_Log2_SCMR_PSYSCMR@frame$scmry3_P_Log2, phat = fitted(regMixOrd_Log1_SCMR_PSYSCMR))
+dev.off()
+
+# Distribution des effets aléatoires
+# Ordonnées à l'origine aléatoires
+pdf(file="figure/plot_regMixOrd_SCMR_chezPSYSCMR_hist-ranef.pdf")
+par(mfrow = c(1,2))
+hist(ranef(regMixOrd_SCMR_PSYSCMR_F)[["code_conf_rec"]][["(Intercept)"]], xlab = "Ordonnées à l'origines aléatoires", ylab = "Effectif", main="")
+# Pentes aléatoires
+hist(ranef(regMixOrd_SCMR_PSYSCMR_F)[["code_conf_rec"]][["I(delai/30)"]], xlab = "Pentes aléatoires", ylab = "", main = "")
+par(mfrow = c(1,1))
+dev.off()
+```
+
+### (Tableau 8) Régression logistique mixte : TSPT + TDAH + SCMR + cov -> RISQ (sur cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+data3PSYspag <- filter(data3PSY, !is.na(data3PSY$hvy1_P))
+
+spagRISQ_delai <- ggplot(data = data3PSYspag, aes(x = delai, y = hvy1_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("RISQ")
+pdf(file="figure/plot_spaghetti_RISQ_chezPSY_delai.pdf")
+spagRISQ_delai
+dev.off()
+
+spagRISQ_MX <- ggplot(data = data3PSYspag, aes(x = phase, y = hvy1_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("RISQ")
+pdf(file="figure/plot_spaghetti_RISQ_chezPSY_MX.pdf")
+spagRISQ_MX
+dev.off()
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","scmr_cat","scmr_cat_P","hvy2_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("hvy1_",type.analyse, sep = ""))]
+
+dataMixLog_RISQ_PSY_Uni <- get_subdata3PSY()
+dataMixLog_RISQ_PSY_Uni$delai.mois <- dataMixLog_RISQ_PSY_Uni$delai/30
+# list_dimensions[["dimMixLog_Uni"]] <- c("N" = nrow(dataMixLog_RISQ_PSY_Uni), "n" = length(unique(dataMixLog_RISQ_PSY_Uni$code_conf_rec)))
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regMixLog_RISQ_PSY_Uni <- list()
+for (i in allUniVar){
+  modMixLog <- glmer(as.formula(paste("hvy1_",type.analyse," ~ ",i," + delai.mois + (1 + delai.mois | code_conf_rec)",sep = "")),
+                     family = binomial(link = "logit"),
+                     data = dataMixLog_RISQ_PSY_Uni)
+  res <- summary(modMixLog)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodMixLog <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodMixLog <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodMixLog <- c("inf" = coefmodMixLog - 1.96*sdmodMixLog,
+                   "sup" = coefmodMixLog + 1.96*sdmodMixLog)
+  pvalmodMixLog <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow.res > 3){
+    modMixLog0 <- glmer(as.formula(paste("hvy1_",type.analyse," ~ 1 + delai.mois + (1 + delai.mois | code_conf_rec)",sep = "")),
+                        family = binomial(link = "logit"),
+                        data = modMixLog@frame)
+    res0 <- summary(modMixLog0)
+    pvalglobalemodMixLog <- 1-pchisq(q = res0[["AICtab"]][["deviance"]] - res[["AICtab"]][["deviance"]],
+                                     df = res0[["AICtab"]][["df.resid"]] - res[["AICtab"]][["df.resid"]])
+    regMixLog_RISQ_PSY_Uni[[i]] <- c("RC" = exp(coefmodMixLog),
+                                     "sd" = sdmodMixLog,
+                                     "IC" = exp(ICmodMixLog),
+                                     "pval" = pvalmodMixLog,
+                                     "pval.globale" = pvalglobalemodMixLog,
+                                     "convergence" = c(modMixLog@optinfo[["conv"]][["lme4"]]))
+  }
+  else{
+    regMixLog_RISQ_PSY_Uni[[i]] <- c("RC" = exp(coefmodMixLog),
+                                     "sd" = sdmodMixLog,
+                                     "IC" = exp(ICmodMixLog),
+                                     "pval" = pvalmodMixLog,
+                                     "convergence" = c(modMixLog@optinfo[["conv"]][["lme4"]]))
+  }
+}
+rm(modMixLog,modMixLog0,nrow.res,res,res0,coefmodMixLog,sdmodMixLog,ICmodMixLog,pvalmodMixLog,pvalglobalemodMixLog,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+# seuil 0,10
+selVar_regMixLog_RISQ_PSY <-c("gender","age","tspt_2cat_P","tdah_2cat_P","scmry3_P","vhc_P","cocaine_quot_P","methadone_hpresc","nbproduitsdif","aidealimentaire","consoalcool_P")
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regMixLog_RISQ_PSY <- append(selVar_regMixLog_RISQ_PSY,c("code_conf_rec","phase","delai","hvy1_P"),0)
+# __ Découpage lignes __ #
+dataMixLog_RISQ_PSY  <- get_subdata3PSY() %>% dplyr::select(all_of(selVar_regMixLog_RISQ_PSY))
+dataMixLog_RISQ_PSY <- na.omit(dataMixLog_RISQ_PSY)
+# __ Cas sous-échantillon d'étude __ #
+list_dimensions[["dimMixLog_RISQ"]] <- c("n" = length(unique(dataMixLog_RISQ_PSY$code_conf_rec)),
+                                         "N" = nrow(dataMixLog_RISQ_PSY))
+
+# ___ Modèle complet ___ #
+regMixLog_RISQ_PSY <- glmer(hvy1_P ~ I(delai/30) + gender + age + tspt_2cat_P + tdah_2cat_P + scmry3_P + vhc_P + cocaine_quot_P + methadone_hpresc + nbproduitsdif + aidealimentaire + consoalcool_P
+                            + (1 + I(delai/30) | code_conf_rec),
+                            data = dataMixLog_RISQ_PSY,
+                            family = binomial(link = "logit"))
+# rm(curWarnings)
+summary(regMixLog_RISQ_PSY)
+AIC(regMixLog_RISQ_PSY)
+
+# ___ Méthode descendante ___ #
+# a <- drop1(regMixLog_RISQ_PSY)
+
+regMixLog_RISQ_PSY_F <- glmer(hvy1_P ~ I(delai/30) + gender + age + tspt_2cat_P + tdah_2cat_P + scmry3_P + vhc_P + cocaine_quot_P + nbproduitsdif + aidealimentaire
+                              + (1 + I(delai/30) | code_conf_rec),
+                              data = dataMixLog_RISQ_PSY,
+                              family = binomial(link = "logit"))
+summary(regMixLog_RISQ_PSY_F)
+AIC(regMixLog_RISQ_PSY_F)
+# a <- drop1(regMixLog_RISQ_PSY_F)
+# rm(a)
+
+anova(regMixLog_RISQ_PSY,regMixLog_RISQ_PSY_F)
+
+# ___ Modèle niché (sans SCMR) ___ #
+regMixLog_RISQ_PSY_F2 <- glmer(hvy1_P ~ I(delai/30) + gender + age + tspt_2cat_P + tdah_2cat_P + vhc_P + cocaine_quot_P + nbproduitsdif + aidealimentaire
+                              + (1 + I(delai/30) | code_conf_rec),
+                              data = dataMixLog_RISQ_PSY,
+                              family = binomial(link = "logit"))
+summary(regMixLog_RISQ_PSY_F2)
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["Mix_RISQ_chezPSY_Uni"]] <- regMixLog_RISQ_PSY_Uni
+list_models[["Mix_RISQ_chezPSY_M.Complet"]] <- regMixLog_RISQ_PSY
+list_models[["Mix_RISQ_chezPSY_M.Final"]] <- regMixLog_RISQ_PSY_F
+list_results[["Mix_RISQ_chezPSY_summary_M.Complet"]] <- summary(list_models[["Mix_RISQ_chezPSY_M.Complet"]])
+list_results[["Mix_RISQ_chezPSY_summary_M.Final"]] <- summary(list_models[["Mix_RISQ_chezPSY_M.Final"]])
+
+list_results[["Mix_RISQ_chezPSY_OR+IC_M.Complet"]] <- ORandIC_MixLog(regMixLog_RISQ_PSY)
+list_results[["Mix_RISQ_chezPSY_OR+IC_M.Final"]] <- ORandIC_MixLog(regMixLog_RISQ_PSY_F)
+list_results[["Mix_RISQ_chezPSY_OR+IC_M.Final(-SCMR)"]] <- ORandIC_MixLog(regMixLog_RISQ_PSY_F2)
+
+# Pour créer le tableau résumé du modèle
+tbl_regression(regMixLog_RISQ_PSY_F, exponentiate = TRUE)
+
+# _ Modèles univariés complémentaires _ #
+  # Delai #
+regMixLog_RISQ_PSY_Uni_delai <- glmer(hvy1_P ~ I(delai/30) + (1 + I(delai/30) | code_conf_rec),
+                                      family = binomial(link = "logit"),
+                                      data = dataMixLog_RISQ_PSY)
+res_delai <- summary(regMixLog_RISQ_PSY_Uni_delai)
+resLog_delai_tab <- c("RC" = exp(res_delai[["coefficients"]][2,1]),
+                      "IC_inf" = exp(res_delai[["coefficients"]][2,1] - 1.96*res_delai[["coefficients"]][2,2]),
+                      "IC_sup" = exp(res_delai[["coefficients"]][2,1] + 1.96*res_delai[["coefficients"]][2,2]),
+                      "pval" = res_delai[["coefficients"]][2,4])
+resLog_delai_tab
+
+  # TSPT #
+regMixLog_RISQ_PSY_Uni_TSPT <- glmer(hvy1_P ~ I(delai/30) + tspt_2cat_P + (1 + I(delai/30) | code_conf_rec),
+                                          family = binomial(link = "logit"),
+                                          data = dataMixLog_RISQ_PSY)
+res_TSPT <- summary(regMixLog_RISQ_PSY_Uni_TSPT)
+resLog_TSPT_tab <- c("RC" = exp(res_TSPT[["coefficients"]][3,1]),
+                     "IC_inf" = exp(res_TSPT[["coefficients"]][3,1] - 1.96*res_TSPT[["coefficients"]][3,2]),
+                     "IC_sup" = exp(res_TSPT[["coefficients"]][3,1] + 1.96*res_TSPT[["coefficients"]][3,2]),
+                     "pval" = res_TSPT[["coefficients"]][3,4])
+resLog_TSPT_tab
+
+  # TDAH #
+regMixLog_RISQ_PSY_Uni_TDAH <- glmer(hvy1_P ~ I(delai/30) + tdah_2cat_P + (1 + I(delai/30) | code_conf_rec),
+                                          family = binomial(link = "logit"),
+                                          data = dataMixLog_RISQ_PSY)
+res_TDAH <- summary(regMixLog_RISQ_PSY_Uni_TDAH)
+resLog_TDAH_tab <- c("RC" = exp(res_TDAH[["coefficients"]][3,1]),
+                     "IC_inf" = exp(res_TDAH[["coefficients"]][3,1] - 1.96*res_TDAH[["coefficients"]][3,2]),
+                     "IC_sup" = exp(res_TDAH[["coefficients"]][3,1] + 1.96*res_TDAH[["coefficients"]][3,2]),
+                     "pval" = res_TDAH[["coefficients"]][3,4])
+resLog_TDAH_tab
+
+# ================= Graphiques ================= #
+
+# __ Forest plot des aOR __ #
+data.ff <- as.data.frame(list_results[["Mix_RISQ_chezPSY_OR+IC_M.Final"]])
+data.ff$name <- rownames(list_results[["Mix_RISQ_chezPSY_OR+IC_M.Final"]])
+data.ff$name <- factor(data.ff$name, levels = rev(data.ff$name))
+forest_regMixLog_RISQ_PSY_F <- ggplot(data = data.ff, aes(x = name, y = OR, ymin = IC_inf, ymax = IC_sup)) + geom_pointrange() + geom_hline(yintercept = 1, lty = 2) + coord_flip() + labs(y="Rapports de cotes ajustés (IC95%)", x = "Variables", title = "Forest plot des AOR pour le modèle regMixLog_RISQ_PSY_F")
+forest_regMixLog_RISQ_PSY_F
+
+# ================= Adéquation du modèle choisi ================= #
+
+# __ Vérification de la normalité des Intercepts et des pentes aléatoires __ #
+randef.regMixLog_RISQ_PSY_F <- lme4::ranef(regMixLog_RISQ_PSY_F)
+pdf(file="figure/plot_regMixLog_RISQ_chezPSY_hist-ranef.pdf")
+par(mfrow = c(1,2))
+hist(randef.regMixLog_RISQ_PSY_F[["code_conf_rec"]][,1], breaks = 20, xlab = "Ordonnées à l'origine aléatoires", ylab = "Effectif", main="")
+hist(randef.regMixLog_RISQ_PSY_F[["code_conf_rec"]][,2], breaks = 20, xlab = "Pentes aléatoires", ylab = "", main ="")
+par(mfrow = c(1,1))
+dev.off()
+
+allabout.regMixLog_RISQ_PSY_F <- lme4::getME(regMixLog_RISQ_PSY_F, name = "ALL")
+
+# __ Fitted values VS residual values __ #
+fitted.regMixLog_RISQ_PSY_F <- as.numeric(fitted(regMixLog_RISQ_PSY_F))
+hist(fitted.regMixLog_RISQ_PSY_F)
+residuals.regMixLog_RISQ_PSY_F <- as.numeric(residuals(regMixLog_RISQ_PSY_F))
+hist(residuals.regMixLog_RISQ_PSY_F)
+plot(x = fitted.regMixLog_RISQ_PSY_F, y = residuals.regMixLog_RISQ_PSY_F)
+plot(regMixLog_RISQ_PSY_F)
+
+# __ Courbe ROC __ #
+pdf(file="figure/plot_regMixLog_RISQ_chezPSY_adequation_ROC.pdf")
+plot_ROC(y = regMixLog_RISQ_PSY_F@frame$hvy1_P, phat = fitted(regMixLog_RISQ_PSY_F))
+dev.off()
+
+```
+
+### (Tableau 10) Régression de Poisson mixte : TSPT + TDAH + SCMR + cov -> NBRISQ
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+data3PSYspag <- filter(data3PSY, !is.na(data3PSY$hvy2_P))
+
+spagNBRISQ_delai <- ggplot(data = data3PSYspag, aes(x = delai, y = hvy2_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("NBRISQ")
+pdf(file="figure/plot_spaghetti_NBRISQ_chezPSY_delai.pdf")
+spagNBRISQ_delai
+dev.off()
+
+spagNBRISQ_MX <- ggplot(data = data3PSYspag, aes(x = phase, y = hvy2_P, group = code_conf_rec)) + geom_point() + geom_line() + stat_smooth(aes(group = 1), method = "lm", formula = y ~ x * I(x > 1), se = FALSE) + stat_summary(aes(group = 1), fun.y = mean, geom = "point", shape = 17, size = 3) + xlab("Délai (en jours)") + ylab("NBRISQ")
+pdf(file="figure/plot_spaghetti_NBRISQ_chezPSY_MX.pdf")
+spagNBRISQ_MX
+dev.off()
+```
+
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# ================= Analyses univariées ================= #
+
+# ___ Choix des variables pour les analyses univariées ___ #
+allUniVar <- list_var[! list_var %in% c("code_conf_rec","phase","delai","scmr_cat","scmr_cat_P","hvy1_P")]
+allUniVar <- allUniVar[! allUniVar %in% c(paste("hvy2_",type.analyse, sep = ""))]
+
+dataMixPois_NBRISQ_PSY_Uni <- get_subdata3PSY()
+dataMixPois_NBRISQ_PSY_Uni$delai.mois <- dataMixPois_NBRISQ_PSY_Uni$delai/30
+
+# ___ Boucle pour récupérér coefficients et pvaleurs ___ #
+regMixPois_NBRISQ_PSY_Uni <- list()
+for (i in allUniVar){
+  modMixPois <- glmer(as.formula(paste("hvy2_",type.analyse," ~ ",i," + (1 + delai.mois | code_conf_rec)",sep = "")),
+                      family = poisson,
+                      data = dataMixPois_NBRISQ_PSY_Uni)
+  res <- summary(modMixPois)
+  nrow.res <- nrow(res[["coefficients"]])
+  coefmodMixPois <- c(res[["coefficients"]][2:nrow.res,1])
+  sdmodMixPois <- c(res[["coefficients"]][2:nrow.res,2])
+  ICmodMixPois <- c("inf" = coefmodMixPois - 1.96*sdmodMixPois,
+                    "sup" = coefmodMixPois + 1.96*sdmodMixPois)
+  pvalmodMixPois <- c(res[["coefficients"]][2:nrow.res,4])
+  if (nrow.res > 4){
+    modMixPois0 <- glmer(as.formula(paste("hvy2_",type.analyse," ~ 1 + (1 + delai.mois | code_conf_rec)",sep = "")),
+                         family = poisson,
+                         data = modMixPois@frame)
+    res0 <- summary(modMixPois0)
+    pvalglobalemodMixPois <- 1-pchisq(q = res0[["AICtab"]][["deviance"]] - res[["AICtab"]][["deviance"]],
+                                      df = res0[["AICtab"]][["df.resid"]] - res[["AICtab"]][["df.resid"]])
+    regMixPois_NBRISQ_PSY_Uni[[i]] <- c("RR" = exp(coefmodMixPois),
+                                        "sd" = sdmodMixPois,
+                                        "IC" = exp(ICmodMixPois),
+                                        "pval" = pvalmodMixPois,
+                                        "pval.globale" = pvalglobalemodMixPois,
+                                        "convergence" = c(modMixPois@optinfo[["conv"]][["lme4"]]))
+  }
+  else{
+    regMixPois_NBRISQ_PSY_Uni[[i]] <- c("RR" = exp(coefmodMixPois),
+                                        "sd" = sdmodMixPois,
+                                        "IC" = exp(ICmodMixPois),
+                                        "pval" = pvalmodMixPois,
+                                        "convergence" = c(modMixPois@optinfo[["conv"]][["lme4"]]))
+  }
+}
+rm(modMixPois,modMixPois0,nrow.res,res,res0,coefmodMixPois,sdmodMixPois,ICmodMixPois,pvalmodMixPois,pvalglobalemodMixPois,i)
+
+# ___ Variables prélevées des analyses univariées ___ #
+# selVar_regMixPois_NBRISQ_PSY <- c("gender","age","tspt_2cat_P","tdah_2cat_P","scmry3_P","cocaine_quot_P","cannabis10j_P","nbproduitsdif","encouple_P")
+selVar_regMixPois_NBRISQ_PSY <- c("gender","age","tspt_2cat_P","tdah_2cat_P","scmry3_P")
+
+# ================= Analyses multivariées ================= #
+
+# ___ Restriction du jeu de données aux variables concernées ___ #
+# __ Découpage colonnes __ #
+selVar_regMixPois_NBRISQ_PSY <- append(selVar_regMixPois_NBRISQ_PSY,c("code_conf_rec","phase","delai","hvy2_P"),0)
+# __ Découpage lignes __ #
+dataMixPois_NBRISQ_PSY  <- get_subdata3PSY() %>% dplyr::select(all_of(selVar_regMixPois_NBRISQ_PSY))
+dataMixPois_NBRISQ_PSY <- na.omit(dataMixPois_NBRISQ_PSY)
+# __ Cas sous-échantillon d'étude __ #
+# dataMixPois_NBRISQ_PSY <- filter(dataMixPois_NBRISQ_PSY,dataMixPois_NBRISQ_PSY$code_conf_rec %in% list_id[["idSCMR"]])
+list_dimensions[["dimMixPois_Model"]] <- c("n" = length(unique(dataMixPois_NBRISQ_PSY$code_conf_rec)),
+                                           "N" = nrow(dataMixPois_NBRISQ_PSY))
+
+# ___ Modèle ___ #
+regMixPois_NBRISQ_PSY_F <- glmer(hvy2_P ~ I(delai/30) + gender + tspt_2cat_P + tdah_2cat_P + scmry3_P
+                                 + I(delai/30):tspt_2cat_P + I(delai/30):tdah_2cat_P
+                                 + (1 + I(delai/30) | code_conf_rec),
+                                 data = dataMixPois_NBRISQ_PSY,
+                                 family = poisson)
+summary(regMixPois_NBRISQ_PSY_F)
+AIC(regMixPois_NBRISQ_PSY_F)
+
+stat.desc(dataMixPois_NBRISQ_PSY$hvy2_P)[["var"]] / stat.desc(dataMixPois_NBRISQ_PSY$hvy2_P)[["mean"]]
+
+check_overdispersion(regMixPois_NBRISQ_PSY_F)
+
+# effet de la variable du temps
+regMixPois_NBRISQ_PSY_F_delai <- glmer(hvy2_P ~ gender + tspt_2cat_P + tdah_2cat_P + scmry3_P
+                                       + I(delai/30):tspt_2cat_P + I(delai/30):tdah_2cat_P
+                                       + (1 + I(delai/30) | code_conf_rec),
+                                       data = dataMixPois_NBRISQ_PSY,
+                                       family = poisson)
+
+anova(regMixPois_NBRISQ_PSY_F,regMixPois_NBRISQ_PSY_F_delai, test = "LRT")
+
+
+
+regMixPois_NBRISQ_PSY_F2 <- glmer(hvy2_P ~ I(delai/30) + gender + age + tspt_2cat_P + tdah_2cat_P
+                                  + I(delai/30):tspt_2cat_P + I(delai/30):tdah_2cat_P
+                                  + (1 + I(delai/30) | code_conf_rec),
+                                  data = dataMixPois_NBRISQ_PSY,
+                                  family = poisson)
+summary(regMixPois_NBRISQ_PSY_F2)
+AIC(regMixPois_NBRISQ_PSY_F2)
+
+anova(regMixPois_NBRISQ_PSY_F,regMixPois_NBRISQ_PSY_F2, test = "Chisq")
+
+# ___ Enregistrement dans les listes ___ #
+list_models[["Mix_NBRISQ_chezPSY_Uni"]] <- regMixPois_NBRISQ_PSY_Uni
+list_models[["Mix_NBRISQ_chezPSY_Modele"]] <- regMixPois_NBRISQ_PSY_F
+list_results[["Mix_NBRISQ_chezPSY_summary_Modele"]] <- summary(list_models[["Mix_NBRISQ_chezPSY_Modele"]])
+
+list_results[["Mix_NBRISQ_chezPSY_RR+IC_Modele"]] <- RRandIC_MixPois(regMixPois_NBRISQ_PSY_F)
+list_results[["Mix_NBRISQ_chezPSY_RR+IC_Modele(-SCMR)"]] <- RRandIC_MixPois(regMixPois_NBRISQ_PSY_F2)
+
+# _ Modèles univariés complémentaires _ #
+  # Delai #
+regMixPois_NBRISQ_PSY_delai <- glmer(hvy2_P ~ I(delai/30) + (1 + I(delai/30) | code_conf_rec),
+                                     family = poisson,
+                                     data = dataMixPois_NBRISQ_PSY)
+res_delai <- summary(regMixPois_NBRISQ_PSY_delai)
+# res_delai
+resPois_delai_tab <- c("RR" = exp(res_delai[["coefficients"]][2,1]),
+                       "IC_inf" = exp(res_delai[["coefficients"]][2,1] - 1.96*res_delai[["coefficients"]][2,2]),
+                       "IC_sup" = exp(res_delai[["coefficients"]][2,1] + 1.96*res_delai[["coefficients"]][2,2]),
+                       "pval" = res_delai[["coefficients"]][2,4])
+resPois_delai_tab
+
+  # TSPT #
+regMixPois_NBRISQ_PSY_TSPT <- glmer(hvy2_P ~ I(delai/30) + tspt_2cat_P + (1 + I(delai/30) | code_conf_rec),
+                                    family = poisson,
+                                    data = dataMixPois_NBRISQ_PSY)
+res_TSPT <- summary(regMixPois_NBRISQ_PSY_TSPT)
+# res_TSPT
+resPois_TSPT_tab <- c("RR" = exp(res_TSPT[["coefficients"]][3,1]),
+                      "IC_inf" = exp(res_TSPT[["coefficients"]][3,1] - 1.96*res_TSPT[["coefficients"]][3,2]),
+                      "IC_sup" = exp(res_TSPT[["coefficients"]][3,1] + 1.96*res_TSPT[["coefficients"]][3,2]),
+                      "pval" = res_TSPT[["coefficients"]][3,4])
+resPois_TSPT_tab
+
+  # TDAH #
+regMixPois_NBRISQ_PSY_TDAH <- glmer(hvy2_P ~ I(delai/30) + tdah_2cat_P + (1 + I(delai/30) | code_conf_rec),
+                                    family = poisson,
+                                    data = dataMixPois_NBRISQ_PSY)
+res_TDAH <- summary(regMixPois_NBRISQ_PSY_TDAH)
+# res_TDAH
+resPois_TDAH_tab <- c("RR" = exp(res_TDAH[["coefficients"]][3,1]),
+                      "IC_inf" = exp(res_TDAH[["coefficients"]][3,1] - 1.96*res_TDAH[["coefficients"]][3,2]),
+                      "IC_sup" = exp(res_TDAH[["coefficients"]][3,1] + 1.96*res_TDAH[["coefficients"]][3,2]),
+                      "pval" = res_TDAH[["coefficients"]][3,4])
+resPois_TDAH_tab
+
+  # SCMR #
+regMixPois_NBRISQ_PSY_SCMR <- glmer(hvy2_P ~ I(delai/30) + scmry3_P + (1 + I(delai/30) | code_conf_rec),
+                                         family = poisson,
+                                         data = dataMixPois_NBRISQ_PSY)
+res_SCMR <- summary(regMixPois_NBRISQ_PSY_SCMR)
+# res_SCMR
+resPois_SCMR_tab <- c("RR" = c(exp(res_SCMR[["coefficients"]][3:4,1])),
+                      "IC_inf" = c(exp(res_SCMR[["coefficients"]][3:4,1] - 1.96*res_SCMR[["coefficients"]][3:4,2])),
+                      "IC_sup" = c(exp(res_SCMR[["coefficients"]][3:4,1] + 1.96*res_SCMR[["coefficients"]][3:4,2])),
+                      "pval" = c(res_SCMR[["coefficients"]][3:4,4]))
+resPois_SCMR_tab
+
+
+# ================= Adéquation du modèle choisi ================= #
+
+# Distribution des résidus
+residu_regPois <- simulateResiduals(regPois_NBRISQ_PSY_F)
+plot(residu_regPois)
+
+# Distribution des effets aléatoires
+randef.intercept.regMixPois_NBRISQ_PSY_F <- getME(regMixPois_NBRISQ_PSY_F, "b")[1:311]
+randef.pente.regMixPois_NBRISQ_PSY_F <- getME(regMixPois_NBRISQ_PSY_F, "b")[311:622]
+
+pdf(file="figure/plot_regMixPois_NBRISQ_chezPSY_hist-ranef.pdf")
+par(mfrow = c(1,2))
+hist(randef.intercept.regMixPois_NBRISQ_PSY_F, breaks = 12, xlab = "Ordonnées à l'origine aléatoires", ylab = "Effectif", main = "")
+hist(randef.pente.regMixPois_NBRISQ_PSY_F, breaks = 12, xlab = "Pentes aléatoires", ylab = "Effectif", main = "")
+par(mfrow = c(1,1))
+dev.off()
+```
+
+
+# Choix des objets à garder
+```{r}
+keep_var <- c("list_adequation","list_irt","list_models","list_results","list_dimensions","get_subdata3PSY","Hosmer.Lemeshow.test","ORandIC_Log","ORandIC_MixLog","ORandIC_Ord","ORandIC_MixOrd","RRandIC_Pois","RRandIC_MixPois","plot_ROC","HL.test","o.r.test","stukel.test")
+```
+
+```{r eval=TRUE, message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+suppr <- ls()
+suppr <- suppr[! suppr %in% keep_var]
+rm(list = suppr)
+rm(suppr)
+save.image(as.character(paste(getwd(),"COS_ENV_ASSOCIATIONS.RData", sep = "/")))
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```

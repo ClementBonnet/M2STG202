@@ -1,0 +1,1900 @@
+---
+title: "Analyses - Création fichier 'cosinus_env.RData'"
+author: "Clément Bonnet"
+date: "21/02/2022 - 29/07/2022"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+dev.off(dev.list()["RStudioGD"])
+gc()
+shell("cls")
+```
+
+```{r}
+# ========================================================= #
+# ============ CODE R STAGE M2 BIOSTATISTIQUES ============ #
+# ===================== Clément Bonnet ==================== #
+# ========================================================= #
+```
+
+# Mise en place
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Emplacement de travail === #
+setwd("~/stage")
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Chargement des librairies === #
+
+library(devtools)
+library(remotes)
+# devtools::install_github("mattflor/chorddiag")
+# remotes::install_github("davidsjoberg/ggsankey")
+library(berryFunctions) # pour le is.error
+library(chorddiag) # pour les diagrammes en corde
+library(dplyr) #
+library(epiDisplay) #
+library(epiR) #
+library(ggiraph) # pour rendre intéractif les graphiques
+library(ggplot2) # pour les graphiques
+library(ggsankey) # pour les diagrammes de Sankey
+library(haven) # pour importer des données de fichiers Stata ou SAS
+library(Hmisc) # pour la description de variables
+library(magrittr) # pour les diagrammes en corde
+library(pastecs) # pour la description de variables
+library(questionr) # pour renommer une variable
+# library(rcom) #
+# library(rJava) #
+library(tidyverse) #
+# library(xlsx) #
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Chargement du jeu de données === #
+cosinus <- read.csv2("cosinus.csv", header = TRUE)
+colnames(cosinus)[1] <- "code_conf_rec"
+```
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Calcul pourcentage données manquantes === #
+cosinusNA <- ifelse(is.na(cosinus),1,0)
+sum(cosinusNA)/(nrow(cosinus)*ncol(cosinus)) # 54%
+rm(cosinusNA)
+```
+
+# Création / Recodage de certaines variables
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === Variable "Durée de l'interview" sans les valeurs aberrantes === #
+cosinus$duree_itw_new <- ifelse(cosinus$duree_itw > 1520, NA, cosinus$duree_itw)
+
+# === Variable "Score GONOGO total" sans les valeurs 99 pour faire des moyennes ou bien des distributions correctes === #
+cosinus$gonogo_score_r0_hist <- ifelse(cosinus$gonogo_score_r0 == 99, NA, cosinus$gonogo_score_r0)
+
+# === Variable "Âge au premier traitement de substitution" sans les valeurs 98 et plus pour faire des moyennes ou bien des distributions correctes === #
+cosinus$subst3_hist <- ifelse(cosinus$subst3 >= 98, NA, cosinus$subst3)
+
+# === Variable "Combien de personnes avez-vous aidé à injecter qui ne s'étaient jamais injectés avant ?" sans les valeurs 98 pour pouvoir faire des analyses non faussées. === #
+cosinus$iai2_new <- ifelse(cosinus$iai2 >= 98, NA, cosinus$iai2)
+
+# === Variable "Quel âge avez-vous quand cet événement est arrivé ?" sans les valeurs 98 et plus pour faire des moyennes ou bien des distributions correctes === #
+cosinus$spt3_new <- ifelse(cosinus$spt3 >= 98, NA, cosinus$spt3)
+
+# === Variable "phase" recodée pour ne plus avoir les M* dans l'ordre alphanumérique (M0, M12, M3 et M6) mais dans l'ordre désiré : M0, M3, M6 et M12. === #
+cosinus$phase <- factor(cosinus$phase, levels = c("M0", "M3", "M6", "M12"))
+
+# === Variables consommations/âge début/âge début régulier sans les valeurs NSP ou NR === #
+cosinus$ini1_2a_new <- ifelse(cosinus$ini1_2a >= 98, NA, cosinus$ini1_2a)
+cosinus$ini1_2b_new <- ifelse(cosinus$ini1_2b >= 98, NA, cosinus$ini1_2b)
+cosinus$ini1_3b_new <- ifelse(cosinus$ini1_3b >= 98, NA, cosinus$ini1_3b)
+cosinus$ini1_4a_new <- ifelse(cosinus$ini1_4a >= 98, NA, cosinus$ini1_4a)
+cosinus$ini1_4b_new <- ifelse(cosinus$ini1_4b >= 98, NA, cosinus$ini1_4b)
+
+# === Variables activités criminelles sans les valeurs NSP ou NR === #
+cosinus$cri02_new <- ifelse(cosinus$cri02 >= 98, NA, cosinus$cri02)
+cosinus$cri05_new <- ifelse(cosinus$cri05 >= 98, NA, cosinus$cri05)
+cosinus$cri06_new <- ifelse(cosinus$cri06 >= 98, NA, cosinus$cri06)
+cosinus$cri07_new <- ifelse(cosinus$cri07 >= 98, NA, cosinus$cri07)
+cosinus$cri08_new <- ifelse(cosinus$cri08 >= 98, NA, cosinus$cri08)
+cosinus$cri09_new <- ifelse(cosinus$cri09 >= 98, NA, cosinus$cri09)
+cosinus$cri11_new <- ifelse(cosinus$cri11 >= 98, NA, cosinus$cri11)
+cosinus$cri13_new <- ifelse(cosinus$cri13 >= 98, NA, cosinus$cri13)
+
+# === Variables de type "Date" === #
+cosinus$q1_date <- as.Date(as.character(cosinus$q1), "%m/%d/%Y")
+
+cosinus$date <- as.Date(as.character(cosinus$date_r0), "%m/%d/%Y")
+hist(cosinus$date, breaks = 25, xlab = "Année", ylab = "Densité", main = "Histogramme des années d'entretiens")
+
+cosinus$jourabsolu <- as.numeric(cosinus$date)
+cosinus$jourabsolu
+
+cos <- cosinus[,c("code_conf_rec","phase","date","jourabsolu")]
+JAparID <- subset(cos, cos$phase == "M0")
+rownames(JAparID) <- JAparID$code_conf_rec
+
+cosinus$delai <- NA
+for (i in 1:nrow(cosinus)){
+  cosinus$delai[i] <- cosinus$jourabsolu[i] - JAparID[cosinus$code_conf_rec[i],4]
+}
+cos$delai <- cosinus$delai
+
+# === Variable "genre" recodée === #
+
+# ___ trouver les 3 personnes ___ #
+cosinus_gender3 <- subset(cosinus, cosinus$dem1 == 3)
+cosinus$gender <- cosinus$dem1
+cosinus[48,"gender"] <- 1
+cosinus[1767:1770,"gender"] <- 2
+cosinus[1885:1886,"gender"] <- 2
+rm(cosinus_gender3)
+
+# === Variable "prison au cours de la vie à l'inclusion si M0 et au cours des 6 derniers mois pour M6 et M12" === #
+
+cosinus$prison <- NA
+cosinus_prison <- cosinus[,1:2]
+cosinus_prison <- cbind(cosinus_prison, cosinus$pris2, cosinus$pris2_bis_r)
+names(cosinus_prison) <- c("id", "phase", "pris2", "pris2bis")
+cosinus_prison$prison <- NA
+idpris <- cbind((table(cosinus$code_conf_rec, cosinus$pris2)),rep(NA,665))
+idpris <- subset(idpris, idpris[,2] == 1)
+idpris <- rownames(idpris)
+for (i in 1:1896){
+  prison_avant <- 0
+  if(cosinus_prison$id[i] %in% idpris){
+    prison_avant <- 1
+    cosinus$prison[i] <- 1
+    cosinus_prison$prison[i] <- 1
+  }
+  # Pour M0
+  if (cosinus_prison$phase[i] == "M0"){
+    cosinus$prison[i] <- cosinus_prison$pris2[i]
+    cosinus_prison$prison[i] <- cosinus_prison$pris2[i]
+  }
+  # Pour M6 ou M12
+  if(cosinus_prison$phase[i] == "M6" | cosinus_prison$phase[i] == "M12"){
+    cosinus$prison[i] <- min(1, cosinus_prison$pris2bis[i] + prison_avant)
+    cosinus_prison$prison[i] <- min(1, cosinus_prison$pris2bis[i] + prison_avant)
+  }
+}
+
+cosinus_prison$prison <- ifelse(cosinus_prison$prison == 98, NA, cosinus_prison$prison)
+
+idprisnoM3 <- cbind(cosinus$code_conf_rec, cosinus$phase, cosinus$prison)
+idprisnoM3 <- subset(idprisnoM3, idprisnoM3[,2] == "3" & idprisnoM3[,3] == 0)
+idprisnoM3 <- as.character(idprisnoM3[,1])
+
+for(i in 1:1896){
+  if (cosinus$phase[i] == "M3"){
+    if (cosinus$code_conf_rec[i] %in% idprisnoM3){
+      cosinus$prison[i] <- 0
+      cosinus_prison$prison[i] <- 0
+    }
+  }
+}
+
+cosinus$prison_P <- ifelse(cosinus$prison == 98, NA, cosinus$prison)
+cosinus$prison_S <- ifelse(is.na(cosinus$prison_P), 0, cosinus$prison)
+cosinus$prison_NA <- ifelse(is.na(cosinus$prison_P), "NA", cosinus$prison)
+
+rm(i, idpris, idprisnoM3, prison_avant)
+
+table(as.factor(cosinus$prison_P), as.factor(cosinus$phase))
+table(as.factor(cosinus$prison_S), as.factor(cosinus$phase))
+table(as.factor(cosinus$prison_NA), as.factor(cosinus$phase))
+
+# === Variable "tentative de suicide au cours de la vie à l'inclusion si M0 et au cours des 6 derniers mois pour M6 et M12" === #
+
+cosinus$tentative_suic <- NA
+cosinus_tds <- cosinus[,1:2]
+cosinus_tds <- cbind(cosinus_tds, cosinus$suic1_r, cosinus$suic2_r)
+names(cosinus_tds) <- c("id", "phase", "suic1", "suic2")
+cosinus_tds$tentative_suic <- NA
+idsuic <- cbind((table(cosinus$code_conf_rec, cosinus$suic1)),rep(NA,665))
+idsuic <- subset(idsuic, idsuic[,2] == 1)
+idsuic <- rownames(idsuic)
+for (i in 1:1896){
+  tds_avant <- 0
+  if(cosinus_tds$id[i] %in% idsuic){
+    tds_avant <- 1
+    cosinus$tentative_suic[i] <- 1
+    cosinus_tds$tentative_suic[i] <- 1
+  }
+  # Pour M0
+  if (cosinus_tds$phase[i] == "M0"){
+    cosinus$tentative_suic[i] <- cosinus_tds$suic1[i]
+    cosinus_tds$tentative_suic[i] <- cosinus_tds$suic1[i]
+  }
+  # Pour M6 ou M12
+  if(cosinus_tds$phase[i] == "M6" | cosinus_tds$phase[i] == "M12"){
+    cosinus$tentative_suic[i] <- min(1, cosinus_tds$suic2[i] + tds_avant)
+    cosinus_tds$tentative_suic[i] <- min(1, cosinus_tds$suic2[i] + tds_avant)
+  }
+}
+
+cosinus_tds$tentative_suic <- ifelse(cosinus_tds$tentative_suic == 9, NA, cosinus_tds$tentative_suic)
+
+idsuicnoM3 <- cbind(cosinus$code_conf_rec, cosinus$phase, cosinus$tentative_suic)
+idsuicnoM3 <- subset(idsuicnoM3, idsuicnoM3[,2] == "3" & idsuicnoM3[,3] == 0)
+idsuicnoM3 <- as.character(idsuicnoM3[,1])
+
+for(i in 1:1896){
+  if (cosinus$phase[i] == "M3"){
+    if (cosinus$code_conf_rec[i] %in% idsuicnoM3){
+      cosinus$tentative_suic[i] <- 0
+      cosinus_tds$tentative_suic[i] <- 0
+    }
+  }
+}
+
+cosinus$tentative_suic_P <- ifelse(cosinus$tentative_suic == 9, NA, cosinus$tentative_suic)
+cosinus$tentative_suic_S <- ifelse(is.na(cosinus$tentative_suic_P), 0, cosinus$tentative_suic)
+cosinus$tentative_suic_NA <- ifelse(is.na(cosinus$tentative_suic_P), "NA", cosinus$tentative_suic)
+
+rm(i, idsuic, idsuicnoM3, tds_avant)
+
+table(as.factor(cosinus$tentative_suic_P), as.factor(cosinus$phase))
+table(as.factor(cosinus$tentative_suic_S), as.factor(cosinus$phase))
+table(as.factor(cosinus$tentative_suic_NA), as.factor(cosinus$phase))
+
+# === Variable "Actuellement sous TSO" mais en oui/non plutôt que non/détails === #
+cosinus$tso_actuel <- ifelse(cosinus$subst4_r1 == 0, 0, 1)
+table(as.factor(cosinus$tso_actuel), as.factor(cosinus$phase))
+
+# === Variable "Consommation quotidienne de cocaine" mais en tenant compte des non-consommateurs === #
+cosinus$cocaine_quot <- ifelse((cosinus$cons1_6_quot == 9) | is.na(cosinus$cons1_6_quot), 0, cosinus$cons1_6_quot)
+table(as.factor(cosinus$cocaine_quot), as.factor(cosinus$phase))
+
+cosinus$cocaine_quot_P <- ifelse(is.na(cosinus$cons1_6_quot), 0, cosinus$cons1_6_quot)
+cosinus$cocaine_quot_P <- ifelse((cosinus$cocaine_quot_P == 9), NA, cosinus$cocaine_quot_P)
+table(as.factor(cosinus$cocaine_quot_P), as.factor(cosinus$phase))
+
+cosinus$cocaine_quot_NA <- ifelse(is.na(cosinus$cocaine_quot_P),"NA",cosinus$cocaine_quot_P)
+table(as.factor(cosinus$cocaine_quot_NA), as.factor(cosinus$phase))
+
+# === Variable "Consommation quotidienne de crack" mais en tenant compte des non-consommateurs === #
+cosinus$crack_quot <- ifelse((cosinus$cons1_7_quot == 9) | is.na(cosinus$cons1_7_quot), 0, cosinus$cons1_7_quot)
+table(as.factor(cosinus$crack_quot), as.factor(cosinus$phase))
+
+# === Variable "Consommation quotidienne de morphine hors prescription" === #
+cosinus$morphine_quot_hpresc <- ifelse(cosinus$cons1_4_r1 == 0, 0, ifelse(cosinus$cons1_4_r0 == 0, 0, ifelse(cosinus$cons1_4_quot == 1, 1, 0)))
+table(as.factor(cosinus$morphine_quot_hpresc), as.factor(cosinus$phase))
+
+cosinus$morphine_quot_hpresc_P <- ifelse(cosinus$cons1_4_r1 == 0, 0, ifelse(cosinus$cons1_4_r0 == 0, 0, ifelse(cosinus$cons1_4_quot == 1, 1, ifelse(cosinus$cons1_4_quot == 9, NA, 0))))
+table(as.factor(cosinus$morphine_quot_hpresc_P), as.factor(cosinus$phase))
+
+cosinus$morphine_quot_hpresc_NA <- ifelse(is.na(cosinus$morphine_quot_hpresc_P),"NA",cosinus$morphine_quot_hpresc_P)
+table(as.factor(cosinus$morphine_quot_hpresc_NA), as.factor(cosinus$phase))
+
+# === Variable "Consommation de cannabis au moins 10 jours par mois" === #
+cosinus$cannabis10j_NA <- ifelse(cosinus$cons1_14_a_r0 >= 32, "NA", ifelse(cosinus$cons1_14_a_r0 <= 9, 0, 1))
+cosinus$cannabis10j_NA <- ifelse(is.na(cosinus$cannabis10j_NA), 0, cosinus$cannabis10j_NA)
+table(as.factor(cosinus$cannabis10j_NA), as.factor(cosinus$phase))
+
+cosinus$cannabis10j_P <- ifelse(cosinus$cannabis10j_NA == "NA", NA,  cosinus$cannabis10j_NA)
+table(as.factor(cosinus$cannabis10j_P), as.factor(cosinus$phase))
+
+cosinus$cannabis10j_S <- ifelse(is.na(cosinus$cannabis10j_P), 0, cosinus$cannabis10j_P)
+table(as.factor(cosinus$cannabis10j_S), as.factor(cosinus$phase))
+
+# === Variable "nombre de produits différents consommés au moins une fois === #
+# Liste des produits différents : 
+cosinus$nbproduitsdif <- NA
+for (i in 1:1896){
+  nb <- 0
+  # == Consommation == #
+  # Héroïne
+  if(isTRUE(cosinus$cons1_1_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Buprénorphine
+  if(isTRUE(cosinus$cons1_2_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Méthadone
+  if(isTRUE(cosinus$cons1_3_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Morphine
+  if(isTRUE(cosinus$cons1_4_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Cocaïne
+  if(isTRUE(cosinus$cons1_6_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Crack ou free base
+  if(isTRUE(cosinus$cons1_7_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Speedball
+  if(isTRUE(cosinus$cons1_8_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Amphétamines
+  if(isTRUE(cosinus$cons1_9_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Méthylphénidate
+  if(isTRUE(cosinus$cons1_10_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Benzodiazépine
+  if(isTRUE(cosinus$cons1_11_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Kétamine
+  if(isTRUE(cosinus$cons1_12_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Hallucinogènes
+  if(isTRUE(cosinus$cons1_13_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  # Cannabis
+  if(isTRUE(cosinus$cons1_14_r1[i] == 1)){
+    nb <- nb + 1
+  }
+  cosinus$nbproduitsdif[i] <- nb
+}
+rm(nb,i)
+table(as.factor(cosinus$nbproduitsdif), as.factor(cosinus$phase))
+
+# === Variable "Statut VIH déclaré" pour tenir compte des non testés ou NSP/NR === #
+cosinus$vih_P <- ifelse(is.na(cosinus$dep1_2_r0), 9, cosinus$dep1_2_r0)
+cosinus$vih_P <- ifelse((cosinus$vih_P == 99 | cosinus$vih_P == 98), 9, cosinus$vih_P)
+cosinus$vih_P <- ifelse(cosinus$phase == "M3", NA, cosinus$vih_P)
+table(as.factor(cosinus$vih_P), as.factor(cosinus$phase))
+# 0 : Testé et séronégatif
+# 1 : Testé et positif
+# 9 : Testé mais statut inconnu OU Non testé OU NSP si testé
+
+cosinus$vih <- ifelse(cosinus$vih_P == 9, 0, cosinus$vih_P)
+table(as.factor(cosinus$vih), as.factor(cosinus$phase))
+
+# === Variable "Statut VHC déclaré" pour tenir compte des non testés ou NSP/NR === #
+cosinus$vhc_P <- ifelse(is.na(cosinus$dep2_2_r), 9, cosinus$dep2_2_r)
+cosinus$vhc_P <- ifelse((cosinus$vhc_P == 99 | cosinus$vhc_P == 98), 9, cosinus$vhc_P)
+cosinus$vhc_P <- ifelse(cosinus$phase == "M3", NA, cosinus$vhc_P)
+table(as.factor(cosinus$vhc_P), as.factor(cosinus$phase))
+# 0 : Testé et séronégatif
+# 1 : Testé et positif mais guéri
+# 2 : Testé et positif mais infecté
+# 9 : Testé mais statut inconnu OU Non testé OU NSP si testé
+
+cosinus$vhc <- ifelse(cosinus$vhc_P == 9, 0, cosinus$vhc_P)
+table(as.factor(cosinus$vhc), as.factor(cosinus$phase))
+
+# === Variable "En couple actuellement" pour tenir compte des NSP/NR === #
+cosinus$encouple <- ifelse(cosinus$dem4_r == 9, 0, cosinus$dem4_r)
+table(as.factor(cosinus$encouple), as.factor(cosinus$phase))
+
+cosinus$encouple_P <- ifelse(cosinus$dem4_r == 9, NA, cosinus$dem4_r)
+table(as.factor(cosinus$encouple_P), as.factor(cosinus$phase))
+
+cosinus$encouple_NA <- ifelse(is.na(cosinus$encouple_P), "NA", cosinus$encouple_P)
+table(as.factor(cosinus$encouple_NA), as.factor(cosinus$phase))
+
+# === Variable "Actitivité professionnelle" pour tenir compte des NSP === #
+cosinus$activite <- ifelse(cosinus$soc1_r1 == 98, 0, cosinus$soc1_r1)
+table(as.factor(cosinus$activite), as.factor(cosinus$phase))
+
+cosinus$activite_P <- ifelse(cosinus$soc1_r1 == 98, NA, cosinus$soc1_r1)
+table(as.factor(cosinus$activite_P), as.factor(cosinus$phase))
+
+cosinus$activite_NA <- ifelse(is.na(cosinus$activite_P), "NA", cosinus$activite_P)
+table(as.factor(cosinus$activite_NA), as.factor(cosinus$phase))
+
+# === Variable "Couverture sociale" pour tenir compte des NSP === #
+cosinus$couvsociale <- ifelse(cosinus$soc4 == 98, 0, cosinus$soc4)
+table(as.factor(cosinus$couvsociale), as.factor(cosinus$phase))
+
+cosinus$couvsociale_P <- ifelse(cosinus$soc4 == 98, NA, cosinus$soc4)
+table(as.factor(cosinus$couvsociale_P), as.factor(cosinus$phase))
+
+cosinus$couvsociale_yesno <- ifelse(cosinus$couvsociale == 0, 0, 1)
+table(as.factor(cosinus$couvsociale_yesno), as.factor(cosinus$phase))
+
+cosinus$couvsociale_yesno_P <- ifelse(cosinus$couvsociale_P == 0, 0, ifelse(!is.na(cosinus$couvsociale_P),1,NA))
+table(as.factor(cosinus$couvsociale_yesno_P), as.factor(cosinus$phase))
+
+cosinus$couvsociale_yesno_NA <- ifelse(is.na(cosinus$couvsociale_yesno_P), "NA", cosinus$couvsociale_yesno_P)
+table(as.factor(cosinus$couvsociale_yesno_NA), as.factor(cosinus$phase))
+
+# Choix Couverture sociale en dichotomique
+cosinus$couvsociale <- cosinus$couvsociale_yesno
+cosinus$couvsociale_P <- cosinus$couvsociale_yesno_P
+cosinus$couvsociale_NA <- cosinus$couvsociale_yesno_NA
+
+# === Variable "Allocation ou pension" pour tenir compte des NSP/NR === #
+cosinus$allocpension <- ifelse(cosinus$soc2 >= 98, 0, cosinus$soc2)
+table(as.factor(cosinus$allocpension), as.factor(cosinus$phase))
+
+cosinus$allocpension_P <- ifelse(cosinus$soc2 >= 98, NA, cosinus$soc2)
+table(as.factor(cosinus$allocpension_P), as.factor(cosinus$phase))
+
+cosinus$allocpension_NA <- ifelse(is.na(cosinus$allocpension_P),"NA",cosinus$allocpension_P)
+table(as.factor(cosinus$allocpension_NA), as.factor(cosinus$phase))
+
+# === Variable "Fréquence d'injection" pour tenir compte des NSP === #
+cosinus$freqinjection <- ifelse(cosinus$ris1_r0 == 9, 0, cosinus$ris1_r0)
+cosinus$freqinjection <- ifelse(cosinus$freqinjection == 0, 1, cosinus$freqinjection)
+cosinus$freqinjection <- cosinus$freqinjection - 1 # pour commencer les catégories à 0
+table(as.factor(cosinus$freqinjection), as.factor(cosinus$phase))
+
+cosinus$freqinjection_P <- ifelse(cosinus$ris1_r0 == 9, NA, cosinus$ris1_r0)
+cosinus$freqinjection_P <- ifelse(cosinus$freqinjection_P == 0, 1, ifelse(is.na(cosinus$freqinjection_P), NA, cosinus$freqinjection_P))
+cosinus$freqinjection_P <- cosinus$freqinjection_P - 1 # pour commencer les catégories à 0
+table(as.factor(cosinus$freqinjection_P), as.factor(cosinus$phase))
+
+cosinus$freqinjection_NA <- ifelse(is.na(cosinus$freqinjection_P), "NA", cosinus$freqinjection_P)
+table(as.factor(cosinus$freqinjection_NA), as.factor(cosinus$phase))
+
+# === Variable "Nombre de cigarettes par jour" pour tenir compte des NSP et regrouper deux modalités === #
+cosinus$cigarette <- ifelse(cosinus$tab1_r0 == 98, 0, cosinus$tab1_r0)
+cosinus$cigarette <- ifelse(cosinus$cigarette == 0, 1, cosinus$cigarette)
+cosinus$cigarette <- cosinus$cigarette - 1 # pour commencer les catégories à 0
+table(as.factor(cosinus$cigarette), as.factor(cosinus$phase))
+
+cosinus$cigarette_P <- ifelse(cosinus$tab1_r0 == 98, NA, cosinus$tab1_r0)
+cosinus$cigarette_P <- ifelse(cosinus$cigarette_P == 0, 1, ifelse(is.na(cosinus$cigarette_P), NA, cosinus$cigarette_P))
+cosinus$cigarette_P <- cosinus$cigarette_P - 1 # pour commencer les catégories à 0
+table(as.factor(cosinus$cigarette_P), as.factor(cosinus$phase))
+
+cosinus$cigarette_NA <- ifelse(is.na(cosinus$cigarette_P),"NA",cosinus$cigarette_P)
+table(as.factor(cosinus$cigarette_NA), as.factor(cosinus$phase))
+
+# === Variable "Consommation problématique d'alcool" en tenant compte des NA === #
+cosinus$consoalcool <- ifelse(is.na(cosinus$audit_risque), 0, cosinus$audit_risque)
+table(as.factor(cosinus$consoalcool), as.factor(cosinus$phase))
+
+cosinus$consoalcool_P <- cosinus$audit_risque
+table(as.factor(cosinus$consoalcool_P), as.factor(cosinus$phase))
+
+cosinus$consoalcool_NA <- ifelse(is.na(cosinus$consoalcool_P),"NA",cosinus$consoalcool_P)
+table(as.factor(cosinus$consoalcool_NA), as.factor(cosinus$phase))
+
+# === Relabellisation de certaines variables === #
+cosinus$lieu <- cosinus$dem3 # lieu de naissance
+cosinus$niveaudetude <- cosinus$dem2 # niveau d'étude
+cosinus$buprenorphine_hpresc <- cosinus$cons1_2_r0 # consommation de buprénorphine hors prescription
+cosinus$methadone_hpresc <- cosinus$cons1_3_r0 # consommation de méthadone hors prescription
+cosinus$precaritelogement <- cosinus$dem5_r # précarité du logement
+cosinus$aidealimentaire <- cosinus$soc3 # aide alimentaire
+```
+
+# Création de la variable TSPT
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Construction de la variable "TSPT" qui est la somme des 22 valeurs des 22 items de l'Impact of Event Scale - Revised (IES-R).
+TSPT_intrusion_list <- c("spt4_01", "spt4_02", "spt4_03", "spt4_06", "spt4_09", "spt4_14", "spt4_16", "spt4_20")
+TSPT_avoidance_list <- c("spt4_05", "spt4_07", "spt4_08", "spt4_11", "spt4_12", "spt4_13", "spt4_17", "spt4_22")
+TSPT_hyperarousal_list <- c("spt4_04", "spt4_10", "spt4_15", "spt4_18", "spt4_19", "spt4_21")
+cosinus_tspt <- cbind(cosinus[,1:2],cosinus[,398],cosinus[,402:423])
+cosinus$tspt_score <- NA
+cosinus$tspt_is9 <- 0
+cosinus$tspt_intrusion <- NA
+cosinus$tspt_intrusion_corr <- NA
+cosinus$tspt_intrusion_is9 <- 0
+cosinus$tspt_avoidance <- NA
+cosinus$tspt_avoidance_corr <- NA
+cosinus$tspt_avoidance_is9 <- 0
+cosinus$tspt_hyperarousal <- NA
+cosinus$tspt_hyperarousal_corr <- NA
+cosinus$tspt_hyperarousal_is9 <- 0
+for (i in c(1:1896)){
+  somme <- 0
+  somme_intrusion <- 0
+  somme_avoidance <- 0
+  somme_hyperarousal <- 0
+  isna <- FALSE
+  is9 <- FALSE
+  for (j in c(402:423)){
+      # Item appartenant aux items "intrusion"
+      if (isTRUE(colnames(cosinus[j]) %in% TSPT_intrusion_list)){
+        if(is.na(cosinus[i,j])){
+          isna <- TRUE
+          cosinus$tspt_is9[i] <- NA
+          cosinus$tspt_intrusion_is9[i] <- NA
+        }
+        else{
+          if(cosinus[i,j] == 98 | cosinus[i,j] == 99){
+            is9 <- TRUE
+            cosinus$tspt_is9[i] <- cosinus$tspt_is9[i] + 1
+            cosinus$tspt_intrusion_is9[i] <- cosinus$tspt_intrusion_is9[i] + 1
+          }
+          else{
+            somme <- somme + cosinus[i,j]
+            somme_intrusion <- somme_intrusion + cosinus[i,j]
+          }
+        }
+      }
+      # Item appartenant aux items "avoidance"
+      if (isTRUE(colnames(cosinus[j]) %in% TSPT_avoidance_list)){
+        if(is.na(cosinus[i,j])){
+          isna <- TRUE
+          cosinus$tspt_is9[i] <- NA
+          cosinus$tspt_avoidance_is9[i] <- NA
+        }
+        else{
+          if(cosinus[i,j] == 98 | cosinus[i,j] == 99){
+            is9 <- TRUE
+            cosinus$tspt_is9[i] <- cosinus$tspt_is9[i] + 1
+            cosinus$tspt_avoidance_is9[i] <- cosinus$tspt_avoidance_is9[i] + 1
+          }
+          else{
+            somme <- somme + cosinus[i,j]
+            somme_avoidance <- somme_avoidance + cosinus[i,j]
+          }
+        }
+      }
+      # Item appartenant aux items "hyperarousal"
+      if (isTRUE(colnames(cosinus[j]) %in% TSPT_hyperarousal_list)){
+        if(is.na(cosinus[i,j])){
+          isna <- TRUE
+          cosinus$tspt_is9[i] <- NA
+          cosinus$tspt_hyperarousal_is9[i] <- NA
+        }
+        else{
+          if(cosinus[i,j] == 98 | cosinus[i,j] == 99){
+            is9 <- TRUE
+            cosinus$tspt_is9[i] <- cosinus$tspt_is9[i] + 1
+            cosinus$tspt_hyperarousal_is9[i] <- cosinus$tspt_hyperarousal_is9[i] + 1
+          }
+          else{
+            somme <- somme + cosinus[i,j]
+            somme_hyperarousal <- somme_hyperarousal + cosinus[i,j]
+          }
+        }
+      }
+  }
+  if (isna == FALSE){
+    if(cosinus$tspt_is9[i] != 22){
+      cosinus$tspt_score[i] <- somme
+    }
+    if(cosinus$tspt_intrusion_is9[i] != 8){
+      cosinus$tspt_intrusion[i] <- round(somme_intrusion/8,2)
+      cosinus$tspt_intrusion_corr[i] <- round(somme_intrusion/(8-cosinus$tspt_intrusion_is9[i]),2)
+    }
+    if(cosinus$tspt_avoidance_is9[i] != 8){
+      cosinus$tspt_avoidance[i] <- round(somme_avoidance/8,2)
+      cosinus$tspt_avoidance_corr[i] <- round(somme_avoidance/(8-cosinus$tspt_avoidance_is9[i]),2)
+    }
+    if(cosinus$tspt_hyperarousal_is9[i] != 6){
+      cosinus$tspt_hyperarousal[i] <- round(somme_hyperarousal/6,2)
+      cosinus$tspt_hyperarousal_corr[i] <- round(somme_hyperarousal/(6-cosinus$tspt_hyperarousal_is9[i]),2)
+    }
+  }
+}
+
+  # ___ Catégorisation ___ #
+cosinus$tspt_yesno33 <- ifelse(cosinus$tspt_score > 33, 1, 0) 
+      # si 98/99 à tous les items => NA (pas de TSPT)
+cosinus$tspt_3cat <- ifelse(cosinus$phase != "M6", NA, ifelse(is.na(cosinus$tspt_score), 0, ifelse(cosinus$tspt_yesno33 == 1, 2, 1)))
+
+table(as.factor(cosinus$tspt_3cat), as.factor(cosinus$phase))
+
+
+rm(i,is9,isna,j,somme,somme_avoidance,somme_hyperarousal,somme_intrusion)
+
+  # -- Jeu de données horizontal avec seulement les variables liées à TSPT -- #
+cosinus_tspt <- cbind(cosinus_tspt, cosinus[,(ncol(cosinus)-12):ncol(cosinus)])
+cosinus_tspt <- subset(cosinus_tspt, cosinus_tspt$phase == "M6")
+  # ___ Score TSPT pour items répondus ___ # 
+summary(cosinus_tspt$tspt_score)
+sd(cosinus_tspt$tspt_score, na.rm = TRUE)
+  # maximum théorique 88
+  # moyenne 31,8 (en considérant que réponse 98 ou 99 aux 22 questions -> score NA et pas score 0) --> c'est-à-dire que le score n'est défini que si la personne répond à au moins 1 question.
+  # ecart-type 20,88
+  # ___ Nombre d'items non répondus ___ #
+summary(as.factor(cosinus_tspt$tspt_is9))
+  # Parmi les 406 personnes qui ont répondu au questionnaire à M6, il y en a 164 qui n'ont pas passé le test pour le TSPT (ce qui correspond presque au nombre de personnes n'ayant pas déclaré d'événement qui était de 161 peut-être que c'est 3 personnes NSP ou NR qui se sont ajoutées (peut-être des personnes qui ont dit NSP ??))
+  # 190 personnes ont répondu à tous les items.
+  # 25 personnes ont passé les items mais ont répondu soit NSP soit NR à chacun des items.
+
+sum(cosinus_tspt$tspt_yesno33, na.rm = TRUE) # 95 personnes ont un score supérieur au seuil de 33
+table(as.factor(cosinus_tspt$tspt_yesno33))
+
+  # ___ Score TSPT : Intrusion ___ #
+summary(cosinus_tspt$tspt_intrusion) # moyenne 1,599 / 4
+sd(cosinus_tspt$tspt_intrusion, na.rm = TRUE) # ecart-type 1,10
+summary(cosinus_tspt$tspt_intrusion_corr) # moyenne 1,637 / 4
+sd(cosinus_tspt$tspt_intrusion_corr, na.rm = TRUE) # ecart-type 1,12
+
+  # ___ Score TSPT : Avoidance ___ #
+summary(cosinus_tspt$tspt_avoidance) # moyenne 1,486 / 4
+sd(cosinus_tspt$tspt_avoidance, na.rm = TRUE) # ecart-type 0,97
+summary(cosinus_tspt$tspt_avoidance_corr) # moyenne 1,542 / 4
+sd(cosinus_tspt$tspt_avoidance_corr, na.rm = TRUE) # ecart-type 1,00
+
+  # ___ Score TSPT : Hyperarousal ___ #
+summary(cosinus_tspt$tspt_hyperarousal) # moyenne 1,193 / 4
+sd(cosinus_tspt$tspt_hyperarousal, na.rm = TRUE) # ecart-type 1,11
+summary(cosinus_tspt$tspt_hyperarousal_corr) # moyenne 1,193 / 4
+sd(cosinus_tspt$tspt_hyperarousal_corr, na.rm = TRUE) # ecart-type 1,13
+
+colnames(cosinus_tspt)[3] <- "evt"
+
+  #  ___ Liste des personnes qui ont eu un événement traumatisant ___ #
+rownames(cosinus_tspt) <- cosinus_tspt$code_conf_rec
+TSPT_evt_Y <- subset(cosinus_tspt, cosinus_tspt$evt == 1)
+idTSPT_EVT_Y <- rownames(TSPT_evt_Y)
+TSPT_evt_N <- subset(cosinus_tspt, cosinus_tspt$evt == 0)
+idTSPT_EVT_N <- rownames(TSPT_evt_N)
+TSPT_evt_NSP <- subset(cosinus_tspt, cosinus_tspt$evt >= 98)
+idTSPT_EVT_NSP <- rownames(TSPT_evt_NSP)
+idTSPT_EVT_YNSP <- union(idTSPT_EVT_Y,idTSPT_EVT_NSP)
+
+rm(TSPT_evt_N,TSPT_evt_NSP,TSPT_evt_Y)
+```
+
+# Création de la variable ANX
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Construction de la variable "anx" qui est la somme des 21 valeurs des 21 items de l'inventaire d'anxiété de Beck
+cosinus_anx <- cbind(cosinus[,1:2],cosinus[,377:397])
+cosinus$anx_score <- NA
+cosinus$anx_is9 <- 0
+for (i in c(1:1896)){
+  somme <- 0
+  isna <- FALSE
+  is9 <- FALSE
+  for (j in c(377:397)){
+    if(is.na(cosinus[i,j])){
+      isna <- TRUE
+      cosinus$anx_is9[i] <- NA
+    }
+    else{
+      if(cosinus[i,j] == 98 | cosinus[i,j] == 99){
+        is9 <- TRUE
+        cosinus$anx_is9[i] <- cosinus$anx_is9[i] + 1
+      }
+      else{
+        somme <- somme + cosinus[i,j]
+      }
+    }
+  }
+  if (isna == FALSE & cosinus$anx_is9[i] != 21){
+    cosinus$anx_score[i] <- somme
+  }
+}
+cosinus$anx_4cat <- ifelse(cosinus$anx_score >= 8, ifelse(cosinus$anx_score >= 16, ifelse(cosinus$anx_score >= 26, 3, 2) , 1), 0)
+cosinus$anx_4cat <- ifelse(is.na(cosinus$anx_4cat) & !is.na(cosinus$anx_is9), 0, cosinus$anx_4cat)
+
+table(as.factor(cosinus$anx_4cat), as.factor(cosinus$phase))
+
+rm(i,is9,isna,j,somme)
+  # -- Jeu de données horizontal avec seulement les variables liées à ANX -- #
+cosinus_anx <- cbind(cosinus_anx, cosinus[,(ncol(cosinus)-2):ncol(cosinus)])
+cosinus_anx <- subset(cosinus_anx, cosinus_anx$phase == "M6")
+  # ___ Score ANX pour items répondus ___ # 
+summary(cosinus_anx$anx_score)
+sd(cosinus_anx$anx_score, na.rm = TRUE)
+  # maximum théorique : 63
+  # moyenne 14,91 (en considérant que réponse 98 ou 99 aux 21 questions -> score NA et pas score 0) --> c'est-à-dire que le score n'est défini que si la personne répond à au moins 1 question.
+  # ecart-type 12,12
+  # ___ Nombre d'items non répondus ___ #
+summary(as.factor(cosinus_anx$anx_is9))
+  # Parmi les 406 personnes qui ont répondu au questionnaire à M6, il y en a 4 qui n'ont répondu que NSP ou NR à tous les items du BAI.
+  # 372 personnes ont répondu à tous les items.
+```
+
+# Création de la variable TDAH
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Construction de la variable "tdah" qui est la somme des 25 valeurs des 25 items du test de WURS
+cosinus_tdah <- cbind(cosinus[,1:2],cosinus[,312:336])
+cosinus$tdah_score <- NA
+cosinus$tdah_is9 <- 0
+for (i in c(1:1896)){
+  somme <- 0
+  isna <- FALSE
+  is9 <- FALSE
+  for (j in c(312:336)){
+    if(is.na(cosinus[i,j])){
+      isna <- TRUE
+      cosinus$tdah_is9[i] <- NA
+    }
+    else{
+      if(cosinus[i,j] == 98 | cosinus[i,j] == 99){
+        is9 <- TRUE
+        cosinus$tdah_is9[i] <- cosinus$tdah_is9[i] + 1
+      }
+      else{
+        somme <- somme + cosinus[i,j]
+      }
+    }
+  }
+  if (isna == FALSE & cosinus$tdah_is9[i] != 25){
+    cosinus$tdah_score[i] <- somme
+  }
+}
+rm(i,is9,isna,j,somme)
+cosinus$tdah_2cat <- ifelse(cosinus$tdah_score > 36, 1, 0)
+cosinus$tdah_2cat <- ifelse(is.na(cosinus$tdah_2cat) & !is.na(cosinus$tdah_is9), 0, cosinus$tdah_2cat)
+
+  # -- Jeu de données horizontal avec seulement les variables liées au TDAH -- #
+cosinus_tdah <- cbind(cosinus_tdah, cosinus[,(ncol(cosinus)-2):ncol(cosinus)])
+cosinus_tdah <- subset(cosinus_tdah, cosinus_tdah$phase == "M3")
+  # ___ Score TDAH pour items répondus ___ # 
+summary(cosinus_tdah$tdah_score)
+sd(cosinus_tdah$tdah_score, na.rm = TRUE)
+  # maximum théorique 25*4 = 100
+  # moyenne 35,57 (en considérant que réponse 98 ou 99 aux 25 questions -> score NA et pas score 0) --> c'est-à-dire que le score n'est défini que si la personne répond à au moins 1 question.
+  # ecart-type 20,29
+  # ___ Nombre d'items non répondus ___ #
+summary(as.factor(cosinus_tdah$tdah_is9))
+  # Parmi les 430 personnes qui ont répondu au questionnaire à M3, il y en a 8 personnes qui n'ont répondu que NSP ou NR au test de WURS.
+  # ___ Variable binaire OUI/NON TDAH ___ #
+  # avec seuil à 36 points
+sum(cosinus_tdah$tdah_yesno36, na.rm = TRUE) # 190 personnes
+  # avec seuil à 46 points
+sum(cosinus_tdah$tdah_yesno46, na.rm = TRUE) # 126 personnes
+```
+
+# Création des variables à expliquer HV-Y1 et HV-Y11 : Avoir déclaré au moins une pratique à risque
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Pratiques à risque
+# ris3_r0 : Emprunt de matériel de quelqu'un d'autre (dernier mois) : OUI / NON / NR / NA
+# ris4_r0 : Prêt du matériel avec quelqu'un d'autre (dernier mois) : OUI / NON / NSP / NR / NA
+# ris5_r1 : Lieu d'obtention des seringues (dernier mois) : Pharmacie / Programme d'échange / Automate / En dehors du circuit officiel / NR / NA
+# ris7_r0 : Injection par une autre personne (dernier mois) : Toujours / Souvent / De temps en temps / Rarement / Jamais / NSP / NR
+# ris9_r0 : Partage de la pipe au crack (dernier mois) : OUI / NON / NSP / NR / NA
+
+# Avoir déclaré au moins une des pratiques à risque
+# ___ variable HV-Y1 ___ #
+
+cosinus$hvy1_P <- ifelse((cosinus$ris1_r0 != 0)  & ((cosinus$ris3_r0 == 1) | (cosinus$ris4_r0 == 1)) | ((cosinus$ris5_r0 >= 5) & (cosinus$ris5_r0 !=99)), 1, ifelse((cosinus$ris3_r0 >= 98) | (cosinus$ris4_r0 >= 98) | (cosinus$ris5_r0 >= 98), 9, 0))
+table(as.factor(cosinus$hvy1_P), as.factor(cosinus$phase))
+
+cosinus$hvy1_P <- ifelse(is.na(cosinus$hvy1_P), 0, cosinus$hvy1_P)
+cosinus$hvy1_P <- ifelse(cosinus$hvy1_P == 9, NA, cosinus$hvy1_P)
+table(as.factor(cosinus$hvy1_P), as.factor(cosinus$phase))
+
+cosinus$hvy1 <- ifelse(is.na(cosinus$hvy1_P), 0, cosinus$hvy1_P)
+table(as.factor(cosinus$hvy1), as.factor(cosinus$phase))
+
+cosinus$hvy1_NA <- ifelse(is.na(cosinus$hvy1_P), "NA", cosinus$hvy1_P)
+table(as.factor(cosinus$hvy1_NA), as.factor(cosinus$phase))
+
+# ___ variable HV-Y11 ___ #
+cosinus$hvy11 <- ifelse((cosinus$ris3_r0 == 1) | (cosinus$ris4_r0 == 1) | (cosinus$ris5_r1 == 4) | (cosinus$ris7_r0 <= 4) | (cosinus$ris9_r0 == 1), 1, 0)
+table(as.factor(cosinus$hvy11), as.factor(cosinus$phase))
+```
+
+# Création de la variable à expliquer HV-Y2 : Compteur de pratiques à risque
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Compteur de pratiques à risque
+
+cosinus_hvtest <- cosinus[,1:2]
+cosinus_hvtest$ris1 <- cosinus$ris1_r0
+cosinus_hvtest$ris3 <- cosinus$ris3_r0
+cosinus_hvtest$ris4 <- cosinus$ris4_r0
+cosinus_hvtest$ris5 <- cosinus$ris5_r0
+cosinus$hvy2 <- 0
+cosinus$hvy2_P <- 0
+cosinus$hvy21 <- 0
+for (i in 1:1896){
+  score <- 0
+  # nbna <- 0
+  val.ris1 <- cosinus_hvtest$ris1
+  if (val.ris1[i] == 0){ # Pas d'injection
+    cosinus$hvy2[i] <- 0
+  }
+  else { # injection
+    if(isTRUE(cosinus_hvtest$ris3[i] == 1)){ # Emprunt matériel
+      score <- score + 1
+    }
+    if(isTRUE(cosinus_hvtest$ris4[i] == 1)){ # Prêt matériel
+      score <- score + 1
+    }
+    if(isTRUE(cosinus_hvtest$ris5[i] == 4) | isTRUE(cosinus_hvtest$ris5[i] == 5) | isTRUE(cosinus_hvtest$ris5[i] == 89)){ # Lieu d'obtention des seringues
+      score <- score + 1
+    }
+    
+    cosinus$hvy2[i] <- score
+    
+    if(isTRUE(cosinus_hvtest$ris3[i] >= 98)){ # Emprunt matériel
+      cosinus$hvy2[i] <- 9
+    }
+    if(isTRUE(cosinus_hvtest$ris4[i] >= 98)){ # Prêt matériel
+      cosinus$hvy2[i] <- 9
+    }
+    if(isTRUE(cosinus_hvtest$ris5[i] >= 98)){ # Lieu d'obtention des seringues
+      cosinus$hvy2[i] <- 9
+    }
+  }
+}
+cosinus_hvtest <- cbind(cosinus_hvtest, cosinus$hvy2)
+cosinus_hvtest <- cosinus_hvtest[,c("code_conf_rec","phase","ris1","ris3","ris4","ris5","cosinus$hvy2")]
+
+rm(i,score,score2)
+
+table(as.factor(cosinus$hvy2), as.factor(cosinus$phase))
+
+cosinus$hvy2_P <- ifelse(cosinus$hvy2 == 9, NA, cosinus$hvy2)
+table(as.factor(cosinus$hvy2_P), as.factor(cosinus$phase))
+
+cosinus$hvy2 <- ifelse(is.na(cosinus$hvy2_P),0,cosinus$hvy2_P)
+table(as.factor(cosinus$hvy2), as.factor(cosinus$phase))
+
+cosinus$hvy2_NA <- ifelse(is.na(cosinus$hvy2_P),"NA",cosinus$hvy2_P)
+table(as.factor(cosinus$hvy2_NA), as.factor(cosinus$phase))
+
+
+```
+
+# Création de la variable à expliquer HV-Y3 : Sérologie VIH/VHC
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+#dep1_2_r0 : sérologie VIH
+#dep2_2_r  : sérologie VHC
+cosinus$hvy3 <- ifelse((cosinus$dep1_2_r0 == 1) | (cosinus$dep2_2_r == 2), "Positif", ifelse((cosinus$dep1_2_r0 == 0 & cosinus$dep2_2_r == 0) | (cosinus$dep1_2_r0 == 0 & cosinus$dep2_2_r == 1), "Négatif", "À risque"))
+cosinus$hvy3 <- factor(cosinus$hvy3, levels = c("Positif", "Négatif", "À risque"))
+table(as.factor(cosinus$hvy3), as.factor(cosinus$phase))
+```
+
+# Création des variables à expliquer HV-Y4 et HV-Y5 : Dépistage VIH/VHC à vie & Dépistage VIH/VHC 6 mois
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ___ Variable Dépistage vie VIH/VHC ___ #
+# dep1_r : dépistage VIH
+# dep2_r : dépistage VHC
+cosinus$hvy4 <- ifelse((cosinus$dep1_r == 1) & (cosinus$dep2_r == 1), "Oui", ifelse((cosinus$dep1_r == 9) & (cosinus$dep2_r == 9), "NSP/NR", "Non"))
+cosinus$hvy4 <- factor(cosinus$hvy4, levels = c("Oui", "Non", "NSP/NR"))
+table(as.factor(cosinus$hvy4), as.factor(cosinus$phase))
+
+# ___ Variable Dépistage il y a moins de 6 mois ___ #
+
+# ___ Dépistage VIH il y a moins de 6 mois ___ #
+cosinus$depVIH6mois <- ifelse((cosinus$dep1_r == 1) & (cosinus$dep1_1_r0 < 180) & !is.na(cosinus$dep1_1_r0), 1, ifelse((cosinus$dep1_r == 9), 9, 0))
+table(as.factor(cosinus$depVIH6mois), as.factor(cosinus$phase))
+
+# ___ Dépistage VHC il y a moins de 6 mois ___ 
+cosinus$depVHC6mois <- ifelse((cosinus$dep2_r == 1) & (cosinus$dep2_1_r0 < 180) & !is.na(cosinus$dep1_1_r0), 1, ifelse((cosinus$dep2_r == 9), 9, 0))
+table(as.factor(cosinus$depVHC6mois), as.factor(cosinus$phase))
+
+# ___ #
+cosinus$hvy5 <- ifelse((cosinus$depVIH6mois == 1) & (cosinus$depVHC6mois == 1), "Oui", ifelse((cosinus$depVIH6mois == 9) & (cosinus$depVHC6mois == 9), "NSP/NR", "Non"))
+cosinus$hvy5 <- factor(cosinus$hvy5, levels = c("Oui", "Non", "NSP/NR"))
+table(as.factor(cosinus$hvy5), as.factor(cosinus$phase))
+```
+
+# Création de la variable à expliquer SCMR-Y3 : Fréquence d'injection ou d'utilisation de la SCMR
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+cosinus$scmry3_P <- NA
+for (i in 1:nrow(cosinus)){
+  check <- 0
+  if(is.na(cosinus$scmr2[i]) | cosinus$scmr2[i] >= 2){
+    cosinus$scmry3_P[i] <- NA
+  }
+  if(isTRUE(cosinus$scmr2[i] == 0)){
+    cosinus$scmry3_P[i] <- "Aucune"
+  }
+  if(isTRUE(cosinus$scmr2[i] == 1)){
+    if(isTRUE(cosinus$scmr3[i] == 0 & cosinus$scmr4[i] == 0)){
+      cosinus$scmry3_P[i] <- "Aucune"
+      check <- 1
+    }
+    if(isTRUE(cosinus$scmr3[i] == 3 | cosinus$scmr3[i] == 4 | cosinus$scmr4[i] == 3 | cosinus$scmr4[i] == 4)){
+      cosinus$scmry3_P[i] <- "Fréq. haute"
+      check <- 1
+    }
+    if(check == 0){
+      cosinus$scmry3_P[i] <- "Fréq. basse"
+    }
+  }
+}
+
+rm(check)
+
+cosinus$scmry3_P[984] <- NA # car NSP à scmr4 => hésitation fréq.basse ou fréq.haute
+
+cosinus$scmry3_S <- ifelse(is.na(cosinus$scmry3_P),"Aucune",cosinus$scmry3_P)
+cosinus$scmry3_S[984] <- "Fréq. basse"
+
+cosinus$scmry3_NA <- ifelse(is.na(cosinus$scmry3_P),"NA",cosinus$scmry3_P)
+
+table(as.factor(cosinus$scmry3_P), as.factor(cosinus$phase))
+table(as.factor(cosinus$scmry3_S), as.factor(cosinus$phase))
+table(as.factor(cosinus$scmry3_NA), as.factor(cosinus$phase))
+
+cosinus$scmr22 <- ifelse(is.na(cosinus$scmr2),"NA",cosinus$scmr2)
+
+table(as.factor(cosinus$scmry3_NA),as.factor(cosinus$scmr22))
+
+table_scmr <- cosinus[c("code_conf_rec","phase","scmr2","scmr3","scmr4","scmry3_P","scmry3_S","scmry3_NA")]
+
+```
+
+# Liste des identifiants selon les entretiens passés
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Tableau général
+a <- table(as.factor(cosinus$code_conf_rec), as.factor(cosinus$phase))
+somme <- rowSums(a[,1:4])
+a <- cbind(a,somme)
+nbsuiviparid <- as.data.frame(a[,"somme"])
+colnames(nbsuiviparid)[1] <- "nb"
+rm(somme)
+# a passé les 4 entretiens --> TDAH, ANX et TSPT
+id4Ent <- rownames(subset(a, a[,"somme"] == 4))
+# a passé 3 entretiens (sauf M3) --> ANX et TSPT
+id3EntPasM3 <- rownames(subset(a, (a[,"M3"] == 0 & a[,"somme"] == 3)))
+# a passé 3 entretiens (sauf M6) --> TDAH
+id3EntPasM6 <- rownames(subset(a, (a[,"M6"] == 0 & a[,"somme"] == 3)))
+# a passé 3 entretiens (sauf M12) --> TDAH, ANX et TSPT
+id3EntPasM12 <- rownames(subset(a, (a[,"M12"] == 0 & a[,"somme"] == 3)))
+# a passé 2 entretiens (M0 et M3) --> TDAH
+id2EntPasM6M12 <- rownames(subset(a, (a[,"M6"] == 0 & a[,"M12"] == 0 & a[,"somme"] == 2)))
+# a passé 2 entretiens (M0 et M6) --> ANX et TSPT
+id2EntPasM3M12 <- rownames(subset(a, (a[,"M3"] == 0 & a[,"M12"] == 0 & a[,"somme"] == 2)))
+# a passé 2 entretiens (M0 et M12) --> aucun des 3 tests psychopatho
+id2EntPasM3M6 <- rownames(subset(a, (a[,"M3"] == 0 & a[,"M6"] == 0 & a[,"somme"] == 2)))
+# a passé 1 entretien (M0) --> aucun des 3 tests psychopatho
+id1Ent <- rownames(subset(a, a[,"somme"] == 1))
+
+rm(a)
+```
+
+# Liste des identifiants selon les catégories de psychopathologies
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cosM3 <- subset(cosinus, cosinus$phase == "M3")
+cosM6 <- subset(cosinus, cosinus$phase == "M6")
+
+# TSPT (3 catégories)
+catPSYid <- as.data.frame(cbind(cosM6$code_conf_rec,cosM6$tspt_3cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "tspt_3cat"
+rownames(catPSYid) <- rowname
+
+idTSPT_3_0 <- rownames(subset(catPSYid, catPSYid$tspt_3cat == 0))
+idTSPT_3_1 <- rownames(subset(catPSYid, catPSYid$tspt_3cat == 1))
+idTSPT_3_2 <- rownames(subset(catPSYid, catPSYid$tspt_3cat == 2))
+
+# ANX (4 catégories)
+catPSYid <- as.data.frame(cbind(cosM6$code_conf_rec,cosM6$anx_4cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "anx_4cat"
+rownames(catPSYid) <- rowname
+
+idANX_4_0 <- rownames(subset(catPSYid, catPSYid$anx_4cat == 0))
+idANX_4_1 <- rownames(subset(catPSYid, catPSYid$anx_4cat == 1))
+idANX_4_2 <- rownames(subset(catPSYid, catPSYid$anx_4cat == 2))
+idANX_4_3 <- rownames(subset(catPSYid, catPSYid$anx_4cat == 3))
+
+# TDAH (2 catégories)
+catPSYid <- as.data.frame(cbind(cosM3$code_conf_rec,cosM3$tdah_2cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "tdah_2cat"
+rownames(catPSYid) <- rowname
+
+idTDAH_2_0 <- rownames(subset(catPSYid, catPSYid$tdah_2cat == 0))
+idTDAH_2_1 <- rownames(subset(catPSYid, catPSYid$tdah_2cat == 1))
+
+rm(rowname, catPSYid, cosM3, cosM6)
+```
+
+# Combler les valeurs qui ne changent pas au cours du temps ou les variables qui ont des trous
+```{r}
+# Toutes les variables qui ne sont prélevées qu'une seule fois et qui ne sont supposées pas changer au cours du temps doivent être répétées pour toutes les lignes de suivis pour chaque personne.
+
+# __ Combler valeurs PSYCHOPATHO __ #
+for(i in 1:nrow(cosinus)){
+  # TSPT
+  if(cosinus$code_conf_rec[i] %in% idTSPT_3_0){
+    cosinus$tspt_3cat[i] <- 0
+  }
+  if(cosinus$code_conf_rec[i] %in% idTSPT_3_1){
+    cosinus$tspt_3cat[i] <- 1
+  }
+  if(cosinus$code_conf_rec[i] %in% idTSPT_3_2){
+    cosinus$tspt_3cat[i] <- 2
+  }
+  # ANX
+  if(cosinus$code_conf_rec[i] %in% idANX_4_0){
+    cosinus$anx_4cat[i] <- 0
+  }
+  if(cosinus$code_conf_rec[i] %in% idANX_4_1){
+    cosinus$anx_4cat[i] <- 1
+  }
+  if(cosinus$code_conf_rec[i] %in% idANX_4_2){
+    cosinus$anx_4cat[i] <- 2
+  }
+  if(cosinus$code_conf_rec[i] %in% idANX_4_3){
+    cosinus$anx_4cat[i] <- 3
+  }
+  # TDAH
+  if(cosinus$code_conf_rec[i] %in% idTDAH_2_0){
+    cosinus$tdah_2cat[i] <- 0
+  }
+  if(cosinus$code_conf_rec[i] %in% idTDAH_2_1){
+    cosinus$tdah_2cat[i] <- 1
+  }
+}
+
+# __ Combler variable Âge __ #
+ageparid <- as.data.frame(na.omit(cbind(cosinus$code_conf_rec,cosinus$age)))
+for(i in 1:nrow(cosinus)){
+  if(is.na(cosinus$age[i])){
+    cosinus$age[i] <- ageparid[which(ageparid$V1 == cosinus$code_conf_rec[i]),2]
+  }
+}
+rm(ageparid)
+
+# __ Combler variable Lieu de naissance __ #
+lieuparid <- as.data.frame(na.omit(cbind(cosinus$code_conf_rec,cosinus$lieu)))
+for(i in 1:nrow(cosinus)){
+  if(is.na(cosinus$lieu[i])){
+    cosinus$lieu[i] <- lieuparid[which(lieuparid$V1 == cosinus$code_conf_rec[i]),2]
+  }
+}
+rm(lieuparid)
+
+# __ Combler variable Niveau d'étude __ #
+niveaudetudeparid <- as.data.frame(na.omit(cbind(cosinus$code_conf_rec,cosinus$niveaudetude)))
+for(i in 1:nrow(cosinus)){
+  if(is.na(cosinus$niveaudetude[i])){
+    cosinus$niveaudetude[i] <- niveaudetudeparid[which(niveaudetudeparid$V1 == cosinus$code_conf_rec[i]),2]
+  }
+}
+rm(niveaudetudeparid,i)
+
+# __ Combler variable VIH à M3 __ #
+table(as.factor(cosinus$vih),cosinus$phase)
+table(as.factor(cosinus$vih_P),cosinus$phase)
+for (i in 1:nrow(cosinus)){
+  if (cosinus$phase[i] == "M0"){
+    val.vih <- cosinus$vih[i]
+    val.vihP <- cosinus$vih_P[i]
+  }
+  if (cosinus$phase[i] == "M3"){
+    if (cosinus$code_conf_rec[i-1] == cosinus$code_conf_rec[i]){
+      cosinus$vih[i] <- val.vih
+      cosinus$vih_P[i] <- val.vihP
+      val.vih <- NULL
+      val.vihP <- NULL
+    }
+  }
+}
+table(as.factor(cosinus$vih),cosinus$phase)
+table(as.factor(cosinus$vih_P),cosinus$phase)
+
+cosinus$vih_NA <- ifelse(cosinus$vih_P == 9, "NA", cosinus$vih_P)
+table(as.factor(cosinus$vih_NA),cosinus$phase)
+
+# __ Combler variable VHC à M3 __ #
+table(as.factor(cosinus$vhc),cosinus$phase)
+table(as.factor(cosinus$vhc_P),cosinus$phase)
+for (i in 1:nrow(cosinus)){
+  if (cosinus$phase[i] == "M0"){
+    val.vhc <- cosinus$vhc[i]
+    val.vhcP <- cosinus$vhc_P[i]
+  }
+  if (cosinus$phase[i] == "M3"){
+    if (cosinus$code_conf_rec[i-1] == cosinus$code_conf_rec[i]){
+      cosinus$vhc[i] <- val.vhc
+      cosinus$vhc_P[i] <- val.vhcP
+      val.vhc <- NULL
+      val.vhcP <- NULL
+    }
+  }
+}
+table(as.factor(cosinus$vhc),cosinus$phase)
+table(as.factor(cosinus$vhc_P),cosinus$phase)
+
+cosinus$vhc_NA <- ifelse(cosinus$vhc_P == 9, "NA", cosinus$vhc_P)
+table(as.factor(cosinus$vhc_NA),cosinus$phase)
+
+a <- cosinus[c("code_conf_rec","phase","vih","vih_P","vhc","vhc_P")]
+a <- filter(a, phase %in% c("M0","M3"))
+```
+
+# Liste d'identifiants selon les 2 critères : 3PSY et SCMR/noSCMR
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Identifiants de tous ceux qui ont passé les 3 tests psychopathologiques
+idPSY <- union(id4Ent,id3EntPasM12)
+
+a <- table(as.factor(cosinus$code_conf_rec), as.factor(cosinus$scmry3_S))
+somme <- rowSums(a[,1:3])
+a <- cbind(a,somme)
+
+# Identifiants de tous ceux qui n'ont jamais fréquenté de SCMR
+idnoSCMR <- rownames(subset(a, (a[,2] == 0 & a[,3] == 0)))
+# Identifiants de ceux qui ont fréquenté au moins une fois une SCMR
+idSCMR <- rownames(subset(a, (a[,2] != 0 | a[,3] != 0)))
+
+# Identifiants de tous ceux qui n'ont jamais fréquenté de SCMR et qui ont passé les 3 tests 
+idPSYnoSCMR <- sort(intersect(idPSY, idnoSCMR))
+# Identifiants de ceux qui ont fréquenté au moins une fois une SCMR et qui ont passé les 3 tests 
+idPSYSCMR <- sort(intersect(idPSY, idSCMR))
+
+rm(a,somme)
+```
+
+# Création des catégories pour les tests
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cosinus$scmr_cat <- NA
+for (i in 1:nrow(cosinus)){
+  if(cosinus$code_conf_rec[i] %in% idPSYSCMR){
+    cosinus$scmr_cat[i] <- 1
+  }
+  if(cosinus$code_conf_rec[i] %in% idPSYnoSCMR){
+    cosinus$scmr_cat[i] <- 0
+  }
+}
+table(cosinus$scmr_cat)
+```
+
+# Sous-jeux de données de COSINUS
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Données à M0
+cosinusM0 <- subset(cosinus, cosinus$phase == "M0")
+# Données à M3
+cosinusM3 <- subset(cosinus, cosinus$phase == "M3")
+# Données à M6
+cosinusM6 <- subset(cosinus, cosinus$phase == "M6")
+# Données à M12
+cosinusM12 <- subset(cosinus, cosinus$phase == "M12")
+```
+
+<!--Les modifications sur le jeu de données cosinus sont terminées, toutes les variables utilisées sont crées, maintenant découpage du jeu de données pour créer les différents échantillons utiles pour les graphiques, tableaux descriptifs, tests et analyses -->
+
+# Sous-jeu de données cos3PSY
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cos3PSY <- subset(cosinus, cosinus$code_conf_rec %in% idPSY)
+length(unique(cos3PSY$code_conf_rec))
+
+# cos3PSY_M0 <- subset(cos3PSY, cos3PSY$phase == "M0")
+# length(unique(cos3PSY_M0$code_conf_rec))
+# cos3PSY_M3 <- subset(cos3PSY, cos3PSY$phase == "M3")
+# length(unique(cos3PSY_M3$code_conf_rec))
+# cos3PSY_M6 <- subset(cos3PSY, cos3PSY$phase == "M6")
+# length(unique(cos3PSY_M6$code_conf_rec))
+# cos3PSY_M12 <- subset(cos3PSY, cos3PSY$phase == "M12")
+# length(unique(cos3PSY_M12$code_conf_rec))
+
+# Effectifs des fréquentations des SCMR selon les suivis pour les personnes qui ont participé aux suivis M3 et M6
+table(as.factor(cos3PSY$scmry3_S), as.factor(cos3PSY$phase))
+
+```
+
+# Combler les valeurs qui ne changent pas au cours du temps dans cos3PSY (échantillon d'étude principal)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# __ Combler variable Score TDAH __ #
+tdahparid <- as.data.frame((cbind(cos3PSY$code_conf_rec,cos3PSY$phase, cos3PSY$tdah_score)))
+tdahparid <- subset(tdahparid, tdahparid$V2 == 2)
+for(i in 1:1272){
+  if(is.na(cos3PSY$tdah_score[i])){
+    cos3PSY$tdah_score[i] <- tdahparid[which(tdahparid$V1 == cos3PSY$code_conf_rec[i]),3]
+  }
+}
+rm(tdahparid)
+
+# __ Combler variable Score TSPT __ #
+tsptparid <- as.data.frame((cbind(cos3PSY$code_conf_rec,cos3PSY$phase, cos3PSY$tspt_score)))
+tsptparid <- subset(tsptparid, tsptparid$V2 == 3)
+for(i in 1:1272){
+  if(is.na(cos3PSY$tspt_score[i])){
+    cos3PSY$tspt_score[i] <- tsptparid[which(tsptparid$V1 == cos3PSY$code_conf_rec[i]),3]
+  }
+}
+rm(tsptparid)
+
+# __ Combler variable Score Anxiété __ #
+anxparid <- as.data.frame((cbind(cos3PSY$code_conf_rec,cos3PSY$phase, cos3PSY$anx_score)))
+anxparid <- subset(anxparid, anxparid$V2 == 3)
+for(i in 1:1272){
+  if(is.na(cos3PSY$anx_score[i])){
+    cos3PSY$anx_score[i] <- anxparid[which(anxparid$V1 == cos3PSY$code_conf_rec[i]),3]
+  }
+}
+rm(anxparid)
+rm(i)
+```
+
+# Création des autres catégories des psychopathologies et de leurs versions pour analyse de sensibilité et catégorie NA
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# === TSPT === #
+
+# __ Ajout de la version en 2 catégories __ #
+cos3PSY$tspt_2cat_NA <- ifelse(cos3PSY$tspt_3cat == 0, 0, cos3PSY$tspt_3cat-1)
+cos3PSY$tspt_2cat_NA <- ifelse(is.na(cos3PSY$tspt_score) & cos3PSY$code_conf_rec %in% idTSPT_EVT_YNSP, "NA", cos3PSY$tspt_2cat_NA)
+cos3PSY$tspt_2cat_P <- ifelse(cos3PSY$tspt_2cat_NA == "NA", NA, cos3PSY$tspt_2cat_NA)
+cos3PSY$tspt_2cat <- ifelse(cos3PSY$tspt_2cat_NA == "NA", 0, cos3PSY$tspt_2cat_NA)
+
+table(as.factor(cos3PSY$tspt_2cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$tspt_2cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$tspt_2cat_NA), cos3PSY$phase) # NA => "NA"
+
+# __ Complétion pour la version en 3 catégories __ #
+
+cos3PSY$tspt_3cat_P <- ifelse(is.na(cos3PSY$tspt_score) & cos3PSY$code_conf_rec %in% idTSPT_EVT_YNSP, NA, cos3PSY$tspt_3cat)
+cos3PSY$tspt_3cat_NA <- ifelse(is.na(cos3PSY$tspt_score) & cos3PSY$code_conf_rec %in% idTSPT_EVT_YNSP, "NA", cos3PSY$tspt_3cat)
+
+table(as.factor(cos3PSY$tspt_3cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$tspt_3cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$tspt_3cat_NA), cos3PSY$phase) # NA => "NA"
+
+# === ANX === #
+
+# __ Ajout de la version en 3 catégories __ #
+
+cos3PSY$anx_3cat_NA <- ifelse(cos3PSY$anx_score >= 22, ifelse(cos3PSY$anx_score >= 36, 2, 1), 0)
+cos3PSY$anx_3cat_NA <- ifelse(is.na(cos3PSY$anx_score), "NA", cos3PSY$anx_3cat_NA)
+cos3PSY$anx_3cat_P <- ifelse(cos3PSY$anx_3cat_NA == "NA", NA, cos3PSY$anx_3cat_NA)
+cos3PSY$anx_3cat <- ifelse(cos3PSY$anx_3cat_NA == "NA", 0, cos3PSY$anx_3cat_NA)
+
+table(as.factor(cos3PSY$anx_3cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$anx_3cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$anx_3cat_NA), cos3PSY$phase) # NA => "NA"
+
+# __ Ajout de la version en 2 catégories __ #
+
+cos3PSY$anx_2cat_NA <- ifelse(cos3PSY$anx_score >= 16, 1, 0)
+cos3PSY$anx_2cat_NA <- ifelse(is.na(cos3PSY$anx_score), "NA", cos3PSY$anx_2cat_NA)
+cos3PSY$anx_2cat_P <- ifelse(cos3PSY$anx_2cat_NA == "NA", NA, cos3PSY$anx_2cat_NA)
+cos3PSY$anx_2cat <- ifelse(cos3PSY$anx_2cat_NA == "NA", 0, cos3PSY$anx_2cat_NA)
+
+table(as.factor(cos3PSY$anx_2cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$anx_2cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$anx_2cat_NA), cos3PSY$phase) # NA => "NA"
+
+# __ Complétion pour la version en 4 catégories __ #
+
+cos3PSY$anx_4cat_P <- ifelse(is.na(cos3PSY$anx_score), NA, cos3PSY$anx_4cat)
+cos3PSY$anx_4cat_NA <- ifelse(is.na(cos3PSY$anx_score), "NA", cos3PSY$anx_4cat)
+
+table(as.factor(cos3PSY$anx_4cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$anx_4cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$anx_4cat_NA), cos3PSY$phase) # NA => "NA"
+
+# === TDAH === #
+
+# __ Complétion pour la version en 2 catégories __ #
+
+cos3PSY$tdah_2cat_P <- ifelse(is.na(cos3PSY$tdah_score), NA, cos3PSY$tdah_2cat)
+cos3PSY$tdah_2cat_NA <- ifelse(is.na(cos3PSY$tdah_score), "NA", cos3PSY$tdah_2cat)
+
+table(as.factor(cos3PSY$tdah_2cat_P), cos3PSY$phase) # NA
+table(as.factor(cos3PSY$tdah_2cat), cos3PSY$phase) # NA => 0
+table(as.factor(cos3PSY$tdah_2cat_NA), cos3PSY$phase) # NA => "NA"
+```
+
+# Ajout de la version "_P" de scmr_cat pour les tableaux
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cos3PSY$scmr_cat_P <- ifelse(is.na(cos3PSY$scmry3_P),NA,cos3PSY$scmr_cat)
+table(as.factor(cos3PSY$scmr_cat), cos3PSY$phase)
+table(as.factor(cos3PSY$scmr_cat_P), cos3PSY$phase)
+```
+
+# Complétion de la liste des identifiants selon les catégories de psychopathologies (ATTENTION : uniquement les personnes qui sont dans cos3PSY)
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cosM3 <- subset(cos3PSY, cos3PSY$phase == "M3")
+cosM6 <- subset(cos3PSY, cos3PSY$phase == "M6")
+
+# TSPT (2 catégories)
+catPSYid <- as.data.frame(cbind(cosM6$code_conf_rec,cosM6$tspt_2cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "tspt_2cat"
+rownames(catPSYid) <- rowname
+
+idTSPT_2_0 <- rownames(subset(catPSYid, catPSYid$tspt_2cat == 0))
+idTSPT_2_1 <- rownames(subset(catPSYid, catPSYid$tspt_2cat == 1))
+
+# ANX (3 catégories)
+catPSYid <- as.data.frame(cbind(cosM6$code_conf_rec,cosM6$anx_3cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "anx_3cat"
+rownames(catPSYid) <- rowname
+
+idANX_3_0 <- rownames(subset(catPSYid, catPSYid$anx_3cat == 0))
+idANX_3_1 <- rownames(subset(catPSYid, catPSYid$anx_3cat == 1))
+idANX_3_2 <- rownames(subset(catPSYid, catPSYid$anx_3cat == 2))
+
+# ANX (2 catégories)
+catPSYid <- as.data.frame(cbind(cosM6$code_conf_rec,cosM6$anx_2cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "anx_2cat"
+rownames(catPSYid) <- rowname
+
+idANX_2_0 <- rownames(subset(catPSYid, catPSYid$anx_2cat == 0))
+idANX_2_1 <- rownames(subset(catPSYid, catPSYid$anx_2cat == 1))
+
+# TDAH (2 catégories)
+catPSYid <- as.data.frame(cbind(cosM3$code_conf_rec,cosM3$tdah_2cat))
+rowname <- catPSYid[,1]
+catPSYid <- as.data.frame(catPSYid[,2])
+colnames(catPSYid) <- "tdah_2cat"
+rownames(catPSYid) <- rowname
+
+idTDAH_2_0 <- rownames(subset(catPSYid, catPSYid$tdah_2cat == 0))
+idTDAH_2_1 <- rownames(subset(catPSYid, catPSYid$tdah_2cat == 1))
+
+# "NA" des 3 psychopathologies
+
+rm(rowname, catPSYid, cosM3, cosM6)
+```
+
+# Par soucis de "logique" : réduction des listes d'identifiants des psychopathologies aux versions au maximum de catégories pour uniquement les personnes de cos3PSY
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+idTSPT_3_0 <- intersect(idTSPT_3_0,idPSY)
+idTSPT_3_1 <- intersect(idTSPT_3_1,idPSY)
+idTSPT_3_2 <- intersect(idTSPT_3_2,idPSY)
+
+idANX_4_0 <- intersect(idANX_4_0,idPSY)
+idANX_4_1 <- intersect(idANX_4_1,idPSY)
+idANX_4_2 <- intersect(idANX_4_2,idPSY)
+idANX_4_3 <- intersect(idANX_4_3,idPSY)
+
+idTDAH_2_0 <- intersect(idTDAH_2_0,idPSY)
+idTDAH_2_1 <- intersect(idTDAH_2_1,idPSY)
+```
+
+# Sous-jeux de données cos3PSYSCMR et cos3PSYnoSCMR
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# pour fréquentation basse ou haute SCMR
+cos3PSYSCMR <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idPSYSCMR)
+length(unique(cos3PSYSCMR$code_conf_rec))
+# cos3PSYSCMR_M0 <- subset(cos3PSYSCMR, cos3PSYSCMR$phase == "M0")
+# cos3PSYSCMR_M3 <- subset(cos3PSYSCMR, cos3PSYSCMR$phase == "M3")
+# cos3PSYSCMR_M6 <- subset(cos3PSYSCMR, cos3PSYSCMR$phase == "M6")
+# cos3PSYSCMR_M12 <- subset(cos3PSYSCMR, cos3PSYSCMR$phase == "M12")
+
+# pour fréquentation aucune SCMR
+cos3PSYnoSCMR <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idPSYnoSCMR)
+length(unique(cos3PSYnoSCMR$code_conf_rec))
+# cos3PSYnoSCMR_M0 <- subset(cos3PSYnoSCMR, cos3PSYnoSCMR$phase == "M0")
+# cos3PSYnoSCMR_M3 <- subset(cos3PSYnoSCMR, cos3PSYnoSCMR$phase == "M3")
+# cos3PSYnoSCMR_M6 <- subset(cos3PSYnoSCMR, cos3PSYnoSCMR$phase == "M6")
+# cos3PSYnoSCMR_M12 <- subset(cos3PSYnoSCMR, cos3PSYnoSCMR$phase == "M12")
+```
+
+# Sous-jeux de données de cos3PSYSCMR_TSPT, cos3PSYSCMR_ANX, cos3PSYSCMR_TDAH
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# TSPT (3 catégories)
+cos3PSY_TSPT_3_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTSPT_3_0) # Pas de TSPT
+cos3PSY_TSPT_3_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTSPT_3_1) # Score TSPT bas
+cos3PSY_TSPT_3_2 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTSPT_3_2) # Score TSPT élevé
+
+# TSPT (2 catégories)
+cos3PSY_TSPT_2_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTSPT_2_0) # Pas de TSPT
+cos3PSY_TSPT_2_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTSPT_2_1) # TSPT
+
+# ANX (4 catégories)
+cos3PSY_ANX_4_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_4_0) # Anxiété minime
+cos3PSY_ANX_4_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_4_1) # Anxiété légère
+cos3PSY_ANX_4_2 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_4_2) # Anxiété modérée
+cos3PSY_ANX_4_3 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_4_3) # Anxiété sévère
+
+# ANX (3 catégories)
+cos3PSY_ANX_3_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_3_0) # Anxiété légère
+cos3PSY_ANX_3_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_3_1) # Anxiété modérée
+cos3PSY_ANX_3_2 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_3_2) # Anxiété préoccupante
+
+# ANX (2 catégories)
+cos3PSY_ANX_2_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_2_0) # Anxiété légère
+cos3PSY_ANX_2_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idANX_2_1) # Anxiété modérée ou préoccupante
+
+# TDAH
+cos3PSY_TDAH_2_0 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTDAH_2_0) # Score TDAH bas
+cos3PSY_TDAH_2_1 <- subset(cos3PSY, cos3PSY$code_conf_rec %in% idTDAH_2_1) # Score TDAH élevé
+```
+
+# Tableau des catégories de psychopathologies selon l'id pour ceux qui ont fait M3 et M6
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+a <- cbind(cos3PSY$code_conf_rec, cos3PSY$phase, as.numeric(cos3PSY$tspt_3cat_P), as.numeric(cos3PSY$tspt_2cat_P), as.numeric(cos3PSY$anx_4cat_P), as.numeric(cos3PSY$anx_3cat_P), as.numeric(cos3PSY$anx_2cat_P), as.numeric(cos3PSY$tdah_2cat_P))
+a <- as.data.frame(a)
+a$V3 <- as.numeric(a$V3)
+a$V4 <- as.numeric(a$V4)
+a$V5 <- as.numeric(a$V5)
+a$V6 <- as.numeric(a$V6)
+a$V7 <- as.numeric(a$V7)
+a$V8 <- as.numeric(a$V8)
+
+colnames(a) <- c("id","phase", "TSPT_3_P", "TSPT_2_P", "ANX_4_P", "ANX_3_P", "ANX_2_P", "TDAH_2_P")
+# a <- na.omit(a)
+a <- subset(a, a$phase == "1")
+PSYCHOcat <- cbind(a[,1],a[,3:8])
+colnames(PSYCHOcat)[1] <- "id"
+rm(a)
+```
+
+# Tableau des scores de psychopathologies selon l'id pour ceux qui ont fait M3 et M6
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+cosANX <- subset(cosinus_anx, cosinus_anx$code_conf_rec %in% idPSYSCMR | cosinus_anx$code_conf_rec %in% idPSYnoSCMR)
+cosTSPT <- subset(cosinus_tspt, cosinus_tspt$code_conf_rec %in% idPSYSCMR | cosinus_tspt$code_conf_rec %in% idPSYnoSCMR)
+cosTDAH <- subset(cosinus_tdah, cosinus_tdah$code_conf_rec %in% idPSYSCMR | cosinus_tdah$code_conf_rec %in% idPSYnoSCMR)
+
+PSYCHOscore <- cbind(cosANX$code_conf_rec, cosTSPT$tspt_score, cosANX$anx_score, cosTDAH$tdah_score)
+PSYCHOscore <- as.data.frame(PSYCHOscore)
+colnames(PSYCHOscore) <- c("id", "TSPT_score", "ANX_score", "TDAH_score")
+PSYCHOscore$TSPT_score <- as.numeric(PSYCHOscore$TSPT_score)
+PSYCHOscore$ANX_score <- as.numeric(PSYCHOscore$ANX_score)
+PSYCHOscore$TDAH_score <- as.numeric(PSYCHOscore$TDAH_score)
+rm(cosANX, cosTSPT, cosTDAH)
+```
+
+# Tableau regroupant score et catégorie des psychopathologies selon l'id
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+PSYCHOresume <- cbind(PSYCHOcat, PSYCHOscore[,2:4])
+rm(PSYCHOcat,PSYCHOscore)
+PSYCHOresume_SCMR <- subset(PSYCHOresume, PSYCHOresume$id %in% idPSYSCMR)
+PSYCHOresume_noSCMR <- subset(PSYCHOresume, PSYCHOresume$id %in% idPSYnoSCMR)
+```
+
+# Tableau regroupant les effectifs et pourcentages de toutes les possibilités de triplets de catégorie
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Version (TSPT 3, ANX 4, TDAH 2)
+PSYCHOtriplet_v342 <- as.data.frame(table(PSYCHOresume$TSPT_3,PSYCHOresume$ANX_4,PSYCHOresume$TDAH_2))
+colnames(PSYCHOtriplet_v342) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v342$pct <- (PSYCHOtriplet_v342$n/sum(PSYCHOtriplet_v342$n))*100
+
+PSYCHOtriplet_v342_SCMR <- as.data.frame(table(PSYCHOresume_SCMR$TSPT_3,PSYCHOresume_SCMR$ANX_4,PSYCHOresume_SCMR$TDAH_2))
+colnames(PSYCHOtriplet_v342_SCMR) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v342_SCMR$pct <- (PSYCHOtriplet_v342_SCMR$n/sum(PSYCHOtriplet_v342_SCMR$n))*100
+
+PSYCHOtriplet_v342_noSCMR <- as.data.frame(table(PSYCHOresume_noSCMR$TSPT_3,PSYCHOresume_noSCMR$ANX_4,PSYCHOresume_noSCMR$TDAH_2))
+colnames(PSYCHOtriplet_v342_noSCMR) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v342_noSCMR$pct <- (PSYCHOtriplet_v342_noSCMR$n/sum(PSYCHOtriplet_v342_noSCMR$n))*100
+
+# Version (TSPT 2, ANX 2, TDAH 2)
+PSYCHOtriplet_v222 <- as.data.frame(table(PSYCHOresume$TSPT_2,PSYCHOresume$ANX_2,PSYCHOresume$TDAH_2))
+colnames(PSYCHOtriplet_v222) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v222$pct <- (PSYCHOtriplet_v222$n/sum(PSYCHOtriplet_v222$n))*100
+
+PSYCHOtriplet_v222_SCMR <- as.data.frame(table(PSYCHOresume_SCMR$TSPT_2,PSYCHOresume_SCMR$ANX_2,PSYCHOresume_SCMR$TDAH_2))
+colnames(PSYCHOtriplet_v222_SCMR) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v222_SCMR$pct <- (PSYCHOtriplet_v222_SCMR$n/sum(PSYCHOtriplet_v222_SCMR$n))*100
+
+PSYCHOtriplet_v222_noSCMR <- as.data.frame(table(PSYCHOresume_noSCMR$TSPT_2,PSYCHOresume_noSCMR$ANX_2,PSYCHOresume_noSCMR$TDAH_2))
+colnames(PSYCHOtriplet_v222_noSCMR) <- c("TSPT","ANX","TDAH","n")
+PSYCHOtriplet_v222_noSCMR$pct <- (PSYCHOtriplet_v222_noSCMR$n/sum(PSYCHOtriplet_v222_noSCMR$n))*100
+```
+
+# Notes
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+#' 89 : Autre
+#' 97 : Non concerné
+#' 98 : NSP (Ne Sait Pas)
+#' 99 : NR (Ne Répond pas)
+#' 9 : NSP / NR (si pas variable multinomiale avec plus de 9 catégories)
+#' 100 : Non demandé
+
+#' Variables binaires (si pas précisé) : 0 NON / 1 OUI
+
+```
+
+# Fonctions
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+
+# ========= Test de comparaison de 2 moyennes ========= #
+test_quanti_2_col <- function(x, y){
+  # cat("Test de comparaison de 2 moyennes pour échantillons indépendants", "\n")
+  x <- as.numeric(x)
+  y <- as.numeric(y)
+  var.egales <- FALSE
+  ech.normal.x <- FALSE
+  ech.normal.y <- FALSE
+  # Test d'égalités des variances
+  if (var.test(x,y)$p.value > 0.05){
+    var.egales <- TRUE
+    cat("Variances égales : OUI (p =",var.test(x,y)$p.value,")", "\n")
+
+  }
+  else{
+    cat("Variances égales : NON (p =",var.test(x,y)$p.value,")", "\n")
+  }
+  # Test de normalité pour x
+  if (ks.test(x,"pnorm")$p.value > 0.05){
+    ech.normal.x <- TRUE
+    cat("Normalité de x : OUI (Test de Kolmogorov-Smirnov) (p =",ks.test(x,"pnorm")$p.value,")","\n")
+  }
+  else{
+    cat("Normalité de x : NON (Test de Kolmogorov-Smirnov) (p =",ks.test(x,"pnorm")$p.value,")","\n")
+  }
+  # Test de normalité pour y
+  if (ks.test(y,"pnorm")$p.value > 0.05){
+    ech.normal.y <- TRUE
+    cat("Normalité de y : OUI (Test de Kolmogorov-Smirnov) (p =",ks.test(y,"pnorm")$p.value,")","\n")
+  }
+  else{
+    cat("Normalité de y : NON (Test de Kolmogorov-Smirnov) (p =",ks.test(y,"pnorm")$p.value,")","\n")
+  }
+  # Si les 2 vecteurs sont normaux :
+  #   t.test si variances égales
+  #   Welch si variances pas égales
+  if(ech.normal.x & ech.normal.y){
+    if (var.egales){
+      cat("Test utilisé : Test de Student (t.test)","\n")
+    }
+    else{
+      cat("Test utilisé : Test de Welch","\n")
+    }
+    return(t.test(x, y, var.equal = var.egales, alternative = "two.sided")$p.value)
+  }
+  # Si les vecteurs ne sont pas normaux alors test Mann-Whitney-Wilcoxon
+  else{
+    cat("Test utilisé : Test de Mann-Whitney-Wilcoxon","\n")
+    return(wilcox.test(x, y)$p.value)
+  }
+}
+
+# ========= Test de comparaison de j moyennes ========= #
+test_quanti_j_col <- function(variable, categorie){
+  cat("Test de comparaison de j moyennes pour échantillons indépendants","\n")
+  variable <- as.numeric(variable)
+  var.groupes.egales <- FALSE
+  normalite.groupes <- FALSE
+  # Vérification de l'égalité des variances entre les groupes
+  # !!!!!!! essayer avec test de Levene !!!!!!!
+  if(bartlett.test(variable ~ categorie)$p.value >= 0.05){
+    var.groupes.egales <- TRUE
+    cat("Variances entre les groupes égales : OUI (Test de Bartlett) (p =",bartlett.test(variable ~ categorie)$p.value,")","\n")
+  }
+  else{
+    cat("Variances entre les groupes égales : NON (Test de Bartlett) (p =",bartlett.test(variable ~ categorie)$p.value,")","\n")
+  }
+  
+  # Vérifi# cation de la normalité
+  if (FALSE){
+    cat("Normalité des groupes : OUI (Test de ??)","\n")
+    normalite.groupes <- TRUE
+    # Test d'ANOVA à 1 facteur
+    cat("Test utilisé : ANOVA à 1 facteur (oneway ANOVA)","\n")
+    return(oneway.test(variable ~ categorie, var.equal = var.groupes.egales)$p.value)
+  }
+  else{
+    # Si la normalité n'est pas vérifiée : test de Kruskal-Wallis
+    cat("Normalité des groupes : NON (supposé)","\n")
+    cat("Test utilisé : Test de Kruskal-Wallis","\n")
+    return(kruskal.test(variable ~ categorie)$p.value)
+  }
+}
+
+# ========= Test de comparaison de proportions/fréquences ========= #
+test_quali <- function (variable, categorie){
+  # cat("Test de comparaison de proportions","\n")
+  variable <- as.factor(variable)
+  # categorie <- as.factor(categorie)
+  # cat("entre",length(unique(categorie)),"échantillons indépendants pour une variable à",length(unique(variable)),"modalités", "\n")
+  options(warn = -1)
+  test <- chisq.test(table(variable, categorie))
+  options(warn = 0)
+  if (length(which(test[["expected"]] < 5 )) == 0){
+    # cat("Effectifs théoriques en dessous de 5 : 0","\n")
+    # cat("Test utilisé : Test du Chi-Deux","\n")
+    return(test$p.value)
+  }
+  else{
+    # cat("Effectifs théoriques en dessous de 5 :",length(which(test[["expected"]] < 5 )), "\n")
+    # cat("Test utilisé : Test de Fisher exact","\n")
+    err <- is.error(fisher.test(table(variable, categorie)))
+    if(err){
+      # cat("avec simulation de p-value par Monte Carlo","\n")
+      test <- fisher.test(table(variable, categorie), simulate.p.value = TRUE, B = 10)
+    }
+    else{
+      test <- fisher.test(table(variable, categorie))
+    }
+    return(test$p.value)
+  }
+}
+
+```
+
+# Regroupement de tous les jeux de données et des listes
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+list_data <- list()
+list_data[["cosinus"]] <- cosinus
+list_data[["cosinusM0"]] <- cosinusM0
+list_data[["cosinusM3"]] <- cosinusM3
+list_data[["cosinusM6"]] <- cosinusM6
+list_data[["cosinusM12"]] <- cosinusM12
+list_data[["cosinus_tspt"]] <- cosinus_tspt
+list_data[["cosinus_anx"]] <- cosinus_anx
+list_data[["cosinus_tdah"]] <- cosinus_tdah
+list_data[["cosinus_scmr"]] <- table_scmr
+list_data[["cosinus_prison"]] <- cosinus_prison
+list_data[["cosinus_tds"]] <- cosinus_tds
+list_data[["cos3PSY"]] <- cos3PSY
+list_data[["cos3PSYnoSCMR"]] <- cos3PSYnoSCMR
+list_data[["cos3PSYSCMR"]] <- cos3PSYSCMR
+list_data[["cos3PSY_TSPT_3_0"]] <- cos3PSY_TSPT_3_0
+list_data[["cos3PSY_TSPT_3_1"]] <- cos3PSY_TSPT_3_1
+list_data[["cos3PSY_TSPT_3_2"]] <- cos3PSY_TSPT_3_2
+list_data[["cos3PSY_TSPT_2_0"]] <- cos3PSY_TSPT_2_0
+list_data[["cos3PSY_TSPT_2_1"]] <- cos3PSY_TSPT_2_1
+list_data[["cos3PSY_ANX_4_0"]] <- cos3PSY_ANX_4_0
+list_data[["cos3PSY_ANX_4_1"]] <- cos3PSY_ANX_4_1
+list_data[["cos3PSY_ANX_4_2"]] <- cos3PSY_ANX_4_2
+list_data[["cos3PSY_ANX_4_3"]] <- cos3PSY_ANX_4_3
+list_data[["cos3PSY_ANX_3_0"]] <- cos3PSY_ANX_3_0
+list_data[["cos3PSY_ANX_3_1"]] <- cos3PSY_ANX_3_1
+list_data[["cos3PSY_ANX_3_2"]] <- cos3PSY_ANX_3_2
+list_data[["cos3PSY_ANX_2_0"]] <- cos3PSY_ANX_2_0
+list_data[["cos3PSY_ANX_2_1"]] <- cos3PSY_ANX_2_1
+list_data[["cos3PSY_TDAH_2_0"]] <- cos3PSY_TDAH_2_0
+list_data[["cos3PSY_TDAH_2_1"]] <- cos3PSY_TDAH_2_1
+list_data[["PSYCHOresume"]] <- PSYCHOresume
+list_data[["PSYCHOresume_SCMR"]] <- PSYCHOresume_SCMR
+list_data[["PSYCHOresume_noSCMR"]] <- PSYCHOresume_noSCMR
+list_data[["PSYCHOtriplet_v222"]] <- PSYCHOtriplet_v222
+list_data[["PSYCHOtriplet_v222_SCMR"]] <- PSYCHOtriplet_v222_SCMR
+list_data[["PSYCHOtriplet_v222_noSCMR"]] <- PSYCHOtriplet_v222_noSCMR
+list_data[["PSYCHOtriplet_v342"]] <- PSYCHOtriplet_v342
+list_data[["PSYCHOtriplet_v342_SCMR"]] <- PSYCHOtriplet_v342_SCMR
+list_data[["PSYCHOtriplet_v342_noSCMR"]] <- PSYCHOtriplet_v342_noSCMR
+list_data[["nbsuiviparid"]] <- nbsuiviparid
+
+# rm(cosinusM0,cosinusM3,cosinusM6,cosinusM12,cosinus_tspt,cosinus_anx,cosinus_tdah,table_scmr,cosinus_prison,cosinus_tds,cos3PSY,cos3PSYSCMR,cos3PSYnoSCMR,cos3PSY_TSPT_3_0,cos3PSY_TSPT_3_1,cos3PSY_TSPT_3_2,cos3PSY_TSPT_2_0,cos3PSY_TSPT_2_1,cos3PSY_ANX_4_0,cos3PSY_ANX_4_1,cos3PSY_ANX_4_2,cos3PSY_ANX_4_3,cos3PSY_ANX_3_0,cos3PSY_ANX_3_1,cos3PSY_ANX_3_2,cos3PSY_ANX_2_0,cos3PSY_ANX_2_1,cos3PSY_TDAH_2_0,cos3PSY_TDAH_2_1)
+
+list_id <- list()
+list_id[["id1Ent"]] <- id1Ent
+list_id[["id2EntPasM3M12"]] <- id2EntPasM3M12
+list_id[["id2EntPasM3M6"]] <- id2EntPasM3M6
+list_id[["id2EntPasM6M12"]] <- id2EntPasM6M12
+list_id[["id3EntPasM3"]] <- id3EntPasM3
+list_id[["id3EntPasM6"]] <- id3EntPasM6
+list_id[["id3EntPasM12"]] <- id3EntPasM12
+list_id[["id4Ent"]] <- id4Ent
+list_id[["idPSY"]] <- idPSY
+list_id[["idSCMR"]] <- idSCMR
+list_id[["idnoSCMR"]] <- idnoSCMR
+list_id[["idPSYSCMR"]] <- idPSYSCMR
+list_id[["idPSYnoSCMR"]] <- idPSYnoSCMR
+list_id[["idTSPT_2_0"]] <- idTSPT_2_0
+list_id[["idTSPT_2_1"]] <- idTSPT_2_1
+list_id[["idTSPT_3_0"]] <- idTSPT_3_0
+list_id[["idTSPT_3_1"]] <- idTSPT_3_1
+list_id[["idTSPT_3_2"]] <- idTSPT_3_2
+list_id[["idANX_2_0"]] <- idANX_2_0
+list_id[["idANX_2_1"]] <- idANX_2_1
+list_id[["idANX_3_0"]] <- idANX_3_0
+list_id[["idANX_3_1"]] <- idANX_3_1
+list_id[["idANX_3_2"]] <- idANX_3_2
+list_id[["idANX_4_0"]] <- idANX_4_0
+list_id[["idANX_4_1"]] <- idANX_4_1
+list_id[["idANX_4_2"]] <- idANX_4_2
+list_id[["idANX_4_3"]] <- idANX_4_3
+list_id[["idTDAH_2_0"]] <- idTDAH_2_0
+list_id[["idTDAH_2_1"]] <- idTDAH_2_1
+list_id[["idTSPT_EVT_Y"]] <- idTSPT_EVT_Y
+list_id[["idTSPT_EVT_N"]] <- idTSPT_EVT_N
+list_id[["idTSPT_EVT_NSP"]] <- idTSPT_EVT_NSP
+list_id[["idTSPT_EVT_YNSP"]] <- idTSPT_EVT_YNSP
+list_id[["TSPT_avoidance_list"]] <- TSPT_avoidance_list
+list_id[["TSPT_hyperarousal_list"]] <- TSPT_hyperarousal_list
+list_id[["TSPT_intrusion_list"]] <- TSPT_intrusion_list
+
+```
+
+
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# ======= Sélection des variables ======= #
+list_var <- c("code_conf_rec", "phase", "delai", "gender", "age", "lieu", "ville", "niveaudetude", "tspt_3cat", "tspt_3cat_P", "tspt_3cat_NA", "tspt_2cat", "tspt_2cat_P", "tspt_2cat_NA", "tspt_score", "anx_4cat", "anx_4cat_P","anx_4cat_NA", "anx_3cat", "anx_3cat_P", "anx_3cat_NA", "anx_2cat", "anx_2cat_P", "anx_2cat_NA", "anx_score", "tdah_2cat","tdah_2cat_P", "tdah_2cat_NA", "tdah_score", "scmry3_S", "scmry3_P", "scmry3_NA", "scmr_cat", "scmr_cat_P", "hvy1", "hvy1_P", "hvy1_NA", "hvy2", "hvy2_P", "hvy2_NA", "freqinjection", "freqinjection_P", "freqinjection_NA", "vih", "vih_P", "vih_NA", "vhc", "vhc_P", "vhc_NA", "tso_actuel", "cocaine_quot", "cocaine_quot_P", "cocaine_quot_NA", "crack_quot", "cannabis10j_S", "cannabis10j_P", "cannabis10j_NA", "buprenorphine_hpresc", "methadone_hpresc", "morphine_quot_hpresc", "morphine_quot_hpresc_P", "morphine_quot_hpresc_NA", "nbproduitsdif", "encouple", "encouple_P", "encouple_NA", "precaritelogement", "activite", "activite_P","activite_NA", "couvsociale", "couvsociale_P", "couvsociale_NA", "aidealimentaire", "allocpension", "allocpension_P", "allocpension_NA", "prison", "prison_P", "prison_NA", "tentative_suic", "tentative_suic_P", "tentative_suic_NA", "consoalcool", "consoalcool_P", "consoalcool_NA", "cigarette", "cigarette_P", "cigarette_NA")
+
+```
+
+# Préparation des jeux de données "data3PSY" et "data3PSYSCMR"
+```{r message=FALSE, warning=FALSE, include=FALSE, results='hide'}
+# data3PSY
+data3PSY <- list_data[["cos3PSY"]]
+
+data3PSY <- data3PSY %>% dplyr::select(all_of(list_var))
+
+data3PSY <- rename.variable(data3PSY, "tspt_3cat", "tspt_3cat_S")
+data3PSY <- rename.variable(data3PSY, "tspt_2cat", "tspt_2cat_S")
+data3PSY <- rename.variable(data3PSY, "anx_4cat", "anx_4cat_S")
+data3PSY <- rename.variable(data3PSY, "anx_3cat", "anx_3cat_S")
+data3PSY <- rename.variable(data3PSY, "anx_2cat", "anx_2cat_S")
+data3PSY <- rename.variable(data3PSY, "tdah_2cat", "tdah_2cat_S")
+data3PSY <- rename.variable(data3PSY, "hvy1", "hvy1_S")
+data3PSY <- rename.variable(data3PSY, "hvy2", "hvy2_S")
+data3PSY <- rename.variable(data3PSY, "freqinjection", "freqinjection_S")
+data3PSY <- rename.variable(data3PSY, "vih", "vih_S")
+data3PSY <- rename.variable(data3PSY, "vhc", "vhc_S")
+data3PSY <- rename.variable(data3PSY, "cocaine_quot", "cocaine_quot_S")
+data3PSY <- rename.variable(data3PSY, "cannabis10j", "cannabis10j_S")
+data3PSY <- rename.variable(data3PSY, "morphine_quot_hpresc", "morphine_quot_hpresc_S")
+data3PSY <- rename.variable(data3PSY, "encouple", "encouple_S")
+data3PSY <- rename.variable(data3PSY, "activite", "activite_S")
+data3PSY <- rename.variable(data3PSY, "couvsociale", "couvsociale_S")
+data3PSY <- rename.variable(data3PSY, "allocpension", "allocpension_S")
+data3PSY <- rename.variable(data3PSY, "prison", "prison_S")
+data3PSY <- rename.variable(data3PSY, "tentative_suic", "tentative_suic_S")
+data3PSY <- rename.variable(data3PSY, "consoalcool", "consoalcool_S")
+data3PSY <- rename.variable(data3PSY, "cigarette", "cigarette_S")
+
+data3PSY_code <- data3PSY
+write.csv(data3PSY,"data3PSY_CODE.csv")
+
+data3PSY$delai <- as.numeric(data3PSY$delai)
+
+data3PSY$gender <- factor(data3PSY$gender, levels = 1:2, labels = c("Homme","Femme"))
+
+data3PSY$age <- as.numeric(data3PSY$age)
+
+data3PSY$lieu <- factor(data3PSY$lieu, levels = c(1,89), labels = c("En France","À l'étranger"))
+
+data3PSY$ville <- factor(data3PSY$ville, levels = c("BO","MA","PA","ST"), labels = c("Bordeaux", "Marseille", "Paris", "Strasbourg"))
+
+data3PSY$niveaudetude <- factor(data3PSY$niveaudetude, levels = 1:2, labels = c("Inférieur au BAC","Supérieur ou égal au BAC"))
+
+data3PSY$tspt_3cat_S <- factor(data3PSY$tspt_3cat_S, levels = 0:2, labels = c("Pas de TSPT", "Score TSPT bas", "Score TSPT élevé"))
+data3PSY$tspt_3cat_P <- factor(data3PSY$tspt_3cat_P, levels = 0:2, labels = c("Pas de TSPT", "Score TSPT bas", "Score TSPT élevé"))
+data3PSY$tspt_3cat_NA <- factor(data3PSY$tspt_3cat_NA, levels = c(0,1,2,"NA"), labels = c("Pas de TSPT", "Score TSPT bas", "Score TSPT élevé", "NA"))
+
+data3PSY$tspt_2cat_S <- factor(data3PSY$tspt_2cat_S, levels = 0:1, labels = c("Pas de TSPT", "TSPT"))
+data3PSY$tspt_2cat_P <- factor(data3PSY$tspt_2cat_P, levels = 0:1, labels = c("Pas de TSPT", "TSPT"))
+data3PSY$tspt_2cat_NA <- factor(data3PSY$tspt_2cat_NA, levels = c(0,1,"NA"), labels = c("Pas de TSPT", "TSPT", "NA"))
+
+data3PSY$tspt_score <- as.numeric(data3PSY$tspt_score)
+
+data3PSY$anx_4cat_S <- factor(data3PSY$anx_4cat_S, levels = 0:3, labels = c("Anxiété minime", "Anxiété légère", "Anxiété modérée", "Anxiété sévère"))
+data3PSY$anx_4cat_P <- factor(data3PSY$anx_4cat_P, levels = 0:3, labels = c("Anxiété minime", "Anxiété légère", "Anxiété modérée", "Anxiété sévère"))
+data3PSY$anx_4cat_NA <- factor(data3PSY$anx_4cat_NA, levels = c(0,1,2,3,"NA"), labels = c("Anxiété minime", "Anxiété légère", "Anxiété modérée", "Anxiété sévère", "NA"))
+
+data3PSY$anx_3cat_S <- factor(data3PSY$anx_3cat_S, levels = 0:2, labels = c("Anxiété légère", "Anxiété modérée","Anxiété préoccupante"))
+data3PSY$anx_3cat_P <- factor(data3PSY$anx_3cat_P, levels = 0:2, labels = c("Anxiété légère", "Anxiété modérée","Anxiété préoccupante"))
+data3PSY$anx_3cat_NA <- factor(data3PSY$anx_3cat_NA, levels = c(0,1,2,"NA"), labels = c("Anxiété légère", "Anxiété modérée","Anxiété préoccupante", "NA"))
+
+data3PSY$anx_2cat_S <- factor(data3PSY$anx_2cat_S, levels = 0:1, labels = c("Anxiété légère", "Anxiété modérée ou préoccupante"))
+data3PSY$anx_2cat_P <- factor(data3PSY$anx_2cat_P, levels = 0:1, labels = c("Anxiété légère", "Anxiété modérée ou préoccupante"))
+data3PSY$anx_2cat_NA <- factor(data3PSY$anx_2cat_NA, levels = c(0,1,"NA"), labels = c("Anxiété légère", "Anxiété modérée ou préoccupante", "NA"))
+
+data3PSY$anx_score <- as.numeric(data3PSY$anx_score)
+
+data3PSY$tdah_2cat_S <- factor(data3PSY$tdah_2cat_S, levels = 0:1, labels = c("Score TDAH bas", "Score TDAH élevé"))
+data3PSY$tdah_2cat_P <- factor(data3PSY$tdah_2cat_P, levels = 0:1, labels = c("Score TDAH bas", "Score TDAH élevé"))
+data3PSY$tdah_2cat_NA <- factor(data3PSY$tdah_2cat_NA, levels = c(0,1,"NA"), labels = c("Score TDAH bas", "Score TDAH élevé","NA"))
+
+data3PSY$tdah_score <- as.numeric(data3PSY$tdah_score)
+
+data3PSY$scmry3_S <- factor(data3PSY$scmry3_S, levels = c("Aucune", "Fréq. basse", "Fréq. haute"), labels = c("Aucune", "Fréq. basse", "Fréq. haute"))
+data3PSY$scmry3_P <- factor(data3PSY$scmry3_P, levels = c("Aucune", "Fréq. basse", "Fréq. haute"), labels = c("Aucune", "Fréq. basse", "Fréq. haute"))
+data3PSY$scmry3_NA <- factor(data3PSY$scmry3_NA, levels = c("Aucune", "Fréq. basse", "Fréq. haute", "NA"), labels = c("Aucune", "Fréq. basse", "Fréq. haute", "NA"))
+
+data3PSY$scmr_cat <- factor(data3PSY$scmr_cat, levels = 0:1, labels = c("Jamais fréq. SCMR", "Déjà fréq. SCMR"))
+data3PSY$scmr_cat_P <- factor(data3PSY$scmr_cat_P, levels = 0:1, labels = c("Jamais fréq. SCMR", "Déjà fréq. SCMR"))
+
+data3PSY$hvy1_S <- factor(data3PSY$hvy1_S, levels = c(0,1,9), labels = c("Non", "Oui", "NSP"))
+data3PSY$hvy1_P <- factor(data3PSY$hvy1_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$hvy1_NA <- factor(data3PSY$hvy1_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$hvy2_S <- as.numeric(data3PSY$hvy2_S)
+data3PSY$hvy2_P <- as.numeric(data3PSY$hvy2_P)
+data3PSY$hvy2_NA <- factor(data3PSY$hvy2_NA, levels = c(0,1,2,3,"NA"), labels = c("0", "1", "2", "3", "NA"))
+
+data3PSY$freqinjection_S <- factor(data3PSY$freqinjection_S, levels = 0:2, labels = c("Jamais ou moins de 4 fois", "Au moins une fois par semaine","Tous les jours"))
+data3PSY$freqinjection_P <- factor(data3PSY$freqinjection_P, levels = 0:2, labels = c("Jamais ou moins de 4 fois", "Au moins une fois par semaine","Tous les jours"))
+data3PSY$freqinjection_NA <- factor(data3PSY$freqinjection_NA, levels = c(0,1,2,"NA"), labels = c("Jamais ou moins de 4 fois", "Au moins une fois par semaine","Tous les jours", "NA"))
+
+data3PSY$vih_S <- factor(data3PSY$vih_S, levels = c(0,1), labels = c("Séronégatif", "Séropositif"))
+data3PSY$vih_P <- factor(data3PSY$vih_P, levels = c(0,1,9), labels = c("Séronégatif", "Séropositif", "À risque"))
+data3PSY$vih_NA <- factor(data3PSY$vih_NA, levels = c(0,1,"NA"), labels = c("Séronégatif", "Séropositif", "NA"))
+
+data3PSY$vhc_S <- factor(data3PSY$vhc_S, levels = c(0,1,2), labels = c("Séronégatif", "Séropositif mais guéri", "Séropositif"))
+data3PSY$vhc_P <- factor(data3PSY$vhc_P, levels = c(0,1,2,9), labels = c("Séronégatif", "Séropositif mais guéri", "Séropositif", "À risque"))
+data3PSY$vhc_NA <- factor(data3PSY$vhc_NA, levels = c(0,1,2,"NA"), labels = c("Séronégatif", "Séropositif mais guéri", "Séropositif", "NA"))
+
+
+data3PSY$tso_actuel <- factor(data3PSY$tso_actuel, levels = 0:1, labels = c("Non", "Oui"))
+
+data3PSY$cocaine_quot_S <- factor(data3PSY$cocaine_quot_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$cocaine_quot_P <- factor(data3PSY$cocaine_quot_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$cocaine_quot_NA <- factor(data3PSY$cocaine_quot_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$crack_quot <- factor(data3PSY$crack_quot, levels = 0:1, labels = c("Non", "Oui"))
+
+data3PSY$cannabis10j_S <- factor(data3PSY$cannabis10j_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$cannabis10j_P <- factor(data3PSY$cannabis10j_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$cannabis10j_NA <- factor(data3PSY$cannabis10j_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$buprenorphine_hpresc <- factor(data3PSY$buprenorphine_hpresc, levels = 0:1, labels = c("Non", "Oui"))
+
+data3PSY$methadone_hpresc <- factor(data3PSY$methadone_hpresc, levels = 0:1, labels = c("Non", "Oui"))
+
+data3PSY$morphine_quot_hpresc_S <- factor(data3PSY$morphine_quot_hpresc_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$morphine_quot_hpresc_P <- factor(data3PSY$morphine_quot_hpresc_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$morphine_quot_hpresc_NA <- factor(data3PSY$morphine_quot_hpresc_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui","NA"))
+
+data3PSY$nbproduitsdif <- as.numeric(data3PSY$nbproduitsdif)
+
+data3PSY$encouple_S <- factor(data3PSY$encouple_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$encouple_P <- factor(data3PSY$encouple_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$encouple_NA <- factor(data3PSY$encouple_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$precaritelogement <- factor(data3PSY$precaritelogement, levels = 1:3, labels = c("Très stable", "Précaire ou instable", "Très instable"))
+
+data3PSY$activite_S <- factor(data3PSY$activite_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$activite_P <- factor(data3PSY$activite_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$activite_NA <- factor(data3PSY$activite_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$couvsociale_S <- factor(data3PSY$couvsociale_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$couvsociale_P <- factor(data3PSY$couvsociale_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$couvsociale_NA <- factor(data3PSY$couvsociale_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$aidealimentaire <- factor(data3PSY$aidealimentaire, levels = 0:1, labels = c("Non", "Oui"))
+
+data3PSY$allocpension_S <- factor(data3PSY$allocpension_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$allocpension_P <- factor(data3PSY$allocpension_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$allocpension_NA <- factor(data3PSY$allocpension_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$prison_S <- factor(data3PSY$prison_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$prison_P <- factor(data3PSY$prison_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$prison_NA <- factor(data3PSY$prison_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$tentative_suic_S <- factor(data3PSY$tentative_suic_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$tentative_suic_P <- factor(data3PSY$tentative_suic_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$tentative_suic_NA <- factor(data3PSY$tentative_suic_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$consoalcool_S <- factor(data3PSY$consoalcool_S, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$consoalcool_P <- factor(data3PSY$consoalcool_P, levels = 0:1, labels = c("Non", "Oui"))
+data3PSY$consoalcool_NA <- factor(data3PSY$consoalcool_NA, levels = c(0,1,"NA"), labels = c("Non", "Oui", "NA"))
+
+data3PSY$cigarette_S <- factor(data3PSY$cigarette_S, levels = 0:4, labels = c("Aucune ou moins d'une", "Entre 1 et 5", "Entre 5 et 10", "Entre 10 et 20", "Plus de 20"))
+data3PSY$cigarette_P <- factor(data3PSY$cigarette_P, levels = 0:4, labels = c("Aucune ou moins d'une", "Entre 1 et 5", "Entre 5 et 10", "Entre 10 et 20", "Plus de 20"))
+data3PSY$cigarette_NA <- factor(data3PSY$cigarette_NA, levels = c(0,1,2,3,4,"NA"), labels = c("Aucune ou moins d'une", "Entre 1 et 5", "Entre 5 et 10", "Entre 10 et 20", "Plus de 20", "NA"))
+
+write.csv(data3PSY,"data3PSY_PHRASE.csv")
+
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+# Mise à jour de list_var à cause des rename.variables d'avant
+list_var <- c("code_conf_rec", "phase", "delai", "gender", "age", "lieu", "ville", "niveaudetude", "tspt_3cat_S", "tspt_3cat_P", "tspt_3cat_NA", "tspt_2cat_S", "tspt_2cat_P", "tspt_2cat_NA", "tspt_score", "anx_4cat_S", "anx_4cat_P","anx_4cat_NA", "anx_3cat_S", "anx_3cat_P", "anx_3cat_NA", "anx_2cat_S", "anx_2cat_P", "anx_2cat_NA", "anx_score", "tdah_2cat_S","tdah_2cat_P", "tdah_2cat_NA", "tdah_score", "scmry3_S", "scmry3_P", "scmry3_NA", "scmr_cat", "scmr_cat_P", "hvy1_S", "hvy1_P", "hvy1_NA", "hvy2_S", "hvy2_P", "hvy2_NA", "freqinjection_S", "freqinjection_P", "freqinjection_NA", "vih_S", "vih_P", "vih_NA", "vhc_S", "vhc_P", "vhc_NA", "tso_actuel", "cocaine_quot_S", "cocaine_quot_P", "cocaine_quot_NA", "crack_quot", "cannabis10j_S", "cannabis10j_P", "cannabis10j_NA", "buprenorphine_hpresc", "methadone_hpresc", "morphine_quot_hpresc_S", "morphine_quot_hpresc_P", "morphine_quot_hpresc_NA", "nbproduitsdif", "encouple_S", "encouple_P", "encouple_NA", "precaritelogement", "activite_S", "activite_P","activite_NA", "couvsociale_S", "couvsociale_P", "couvsociale_NA", "aidealimentaire", "allocpension_S", "allocpension_P", "allocpension_NA", "prison_S", "prison_P", "prison_NA", "tentative_suic_S", "tentative_suic_P", "tentative_suic_NA", "consoalcool_S", "consoalcool_P", "consoalcool_NA", "cigarette_S", "cigarette_P", "cigarette_NA")
+```
+
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+list_var_P <- c("code_conf_rec", "phase", "delai", "gender", "age", "lieu", "ville", "niveaudetude", "tspt_3cat_P", "tspt_2cat_P", "tspt_score", "anx_4cat_P", "anx_3cat_P", "anx_2cat_P", "anx_score", "tdah_2cat_P", "tdah_score", "scmry3_P", "scmr_cat", "scmr_cat_P", "hvy1_P", "hvy2_P", "freqinjection_P", "vih_P", "vhc_P", "tso_actuel", "cocaine_quot_P", "crack_quot", "cannabis10j_P", "buprenorphine_hpresc", "methadone_hpresc", "morphine_quot_hpresc_P", "nbproduitsdif", "encouple_P", "precaritelogement", "activite_P", "couvsociale_P", "aidealimentaire", "allocpension_P", "prison_P", "tentative_suic_P", "consoalcool_P", "cigarette_P")
+
+list_var_S <- c("code_conf_rec", "phase", "delai", "gender", "age", "lieu", "ville", "niveaudetude", "tspt_3cat_S", "tspt_2cat_S", "tspt_score", "anx_4cat_S", "anx_3cat_S", "anx_2cat_S", "anx_score", "tdah_2cat_S", "tdah_score", "scmry3_S", "scmr_cat", "scmr_cat_P", "hvy1_S", "hvy2_S", "freqinjection_S", "vih_S", "vhc_S", "tso_actuel", "cocaine_quot_S", "crack_quot", "cannabis10j_S", "buprenorphine_hpresc", "methadone_hpresc", "morphine_quot_hpresc_S", "nbproduitsdif", "encouple_S", "precaritelogement", "activite_S", "couvsociale_S", "aidealimentaire", "allocpension_S", "prison_S", "tentative_suic_S", "consoalcool_S", "cigarette_S")
+
+list_var_NA <- c("code_conf_rec", "phase", "delai", "gender", "age", "lieu", "ville", "niveaudetude", "tspt_3cat_NA", "tspt_2cat_NA", "tspt_score", "anx_4cat_NA", "anx_3cat_NA", "anx_2cat_NA", "anx_score", "tdah_2cat_NA", "tdah_score", "scmry3_NA", "scmr_cat", "scmr_cat_P", "hvy1_NA", "hvy2_NA", "freqinjection_NA", "vih_NA", "vhc_NA", "tso_actuel", "cocaine_quot_NA", "crack_quot", "cannabis10j_NA", "buprenorphine_hpresc", "methadone_hpresc", "morphine_quot_hpresc_NA", "nbproduitsdif", "encouple_NA", "precaritelogement", "activite_NA", "couvsociale_NA", "aidealimentaire", "allocpension_NA", "prison_NA", "tentative_suic_NA", "consoalcool_NA", "cigarette_NA")
+```
+
+
+```{r, eval=FALSE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+write.csv(data3PSY,"data3PSY.csv")
+write.csv(list_data[[2]] %>% dplyr::select(all_of(list_var)), "data3PSY2.csv")
+```
+
+# Sauvegarde de l'environnement de travail
+```{r, eval = TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+keep_var <- c("data3PSY","data3PSY_code","list_data","list_id","list_var","list_var_P","list_var_S","list_var_NA","test_quali","test_quanti_2_col","test_quanti_j_col")
+suppr <- ls()
+suppr <- suppr[! suppr %in% keep_var]
+rm(list = suppr)
+rm(suppr)
+save.image(as.character(paste(getwd(),"COS_ENV_CORE.RData", sep = "/")))
+```
+
+# Suppression de l'environnement de travail
+```{r, eval=TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+rm(list = ls())
+```
+
+# Nettoyage des plots
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+dev.off(dev.list()["RStudioGD"])
+```
+
+# Nettoyage mémoire
+```{r, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+gc()
+```
+
+# Nettoyer la console
+```{r, eval = TRUE, results='hide', warning=FALSE, message=FALSE, include=FALSE}
+shell("cls")
+```
+
